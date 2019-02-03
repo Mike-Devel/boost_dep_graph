@@ -11,7 +11,6 @@
 #include <QPainter>
 #include <QStyleOption>
 
-#include <iostream>
 
 namespace mdev::bdg {
 

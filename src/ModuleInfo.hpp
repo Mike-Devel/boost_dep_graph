@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace mdev {
+namespace mdev::bdg {
 
 struct ModuleInfo {
 	std::string           name;
@@ -22,4 +22,4 @@ struct ModuleInfo {
 
 using modules_data = std::map<std::string, ModuleInfo>;
 
-} // namespace mdev
+} // namespace mdev::bdg

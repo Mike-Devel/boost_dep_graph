@@ -18,7 +18,6 @@ void update_derived_information( modules_data& modules );
 
 std::vector<const ModuleInfo*> get_modules_sorted_by_dep_count( const modules_data& modules );
 
-// update partial information
 void update_cmake_status( ModuleInfo& module );
 
 } // namespace mdev::bdg

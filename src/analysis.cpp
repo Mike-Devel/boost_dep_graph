@@ -80,7 +80,7 @@ void update_transitive_dependencies( modules_data& modules )
 
 	// build transitive closure
 	for( auto& [dont_care, module] : modules ) {
-		for( auto prev_dep_cnt = 0; prev_dep_cnt != module.all_deps.size(); ) {
+		for( auto prev_dep_cnt = (std::size_t)0; prev_dep_cnt != module.all_deps.size(); ) {
 
 			prev_dep_cnt = module.all_deps.size();
 			std::set<ModuleInfo*> new_deps;

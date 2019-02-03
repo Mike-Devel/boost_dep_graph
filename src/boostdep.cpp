@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace boostdep {
+namespace mdev::boostdep {
 
 //################### Detect headers #####################################
 namespace {

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../utils.hpp"
 #include "../ModuleInfo.hpp"
+#include "../utils.hpp"
 
 namespace mdev::bdg {
 
-using ModuleLayout = std::vector<std::vector<mdev::ModuleInfo*>>;
+using ModuleLayout = std::vector<std::vector<ModuleInfo*>>;
 
 ModuleLayout layout_boost_modules( modules_data& modules )
 {

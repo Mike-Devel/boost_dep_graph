@@ -1,17 +1,14 @@
 #pragma once
 
 #include <QGraphicsItem>
-#include <QList>
 #include <QString>
-#include <string>
 #include <vector>
 
 class QGraphicsSceneMouseEvent;
 
-namespace mdev {
-struct ModuleInfo;
+namespace mdev::bdg {
 
-namespace bdg {
+struct ModuleInfo;
 
 class Edge;
 class GraphWidget;
@@ -45,5 +42,4 @@ private:
 	bool               _is_selected = false;
 };
 
-} // namespace bdg
-} // namespace mdev
+} // namespace mdev::bdg

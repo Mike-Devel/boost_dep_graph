@@ -4,11 +4,9 @@
 #include <QGraphicsView>
 #include <vector>
 
-namespace mdev {
+namespace mdev::bdg {
 
 struct ModuleInfo;
-
-namespace bdg {
 
 class Node;
 class Edge;
@@ -44,5 +42,4 @@ private:
 	Node* _selectedNode = nullptr;
 };
 
-} // namespace bdg
-} // namespace mdev
+} // namespace mdev::bdg

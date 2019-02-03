@@ -6,13 +6,9 @@
 #include "../ModuleInfo.hpp"
 #include "../utils.hpp"
 
-#include <math.h>
-
-#include <QHBoxLayout>
 #include <QKeyEvent>
-#include <QTreeWidget>
-#include <iostream>
-#include <random>
+
+#include <cmath>
 
 namespace mdev {
 namespace bdg {
@@ -89,7 +85,7 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 		}
 
 		for( auto& module : group ) {
-			auto n = new Node( this, module, layout.size() + 2 - module->level );
+			auto n = new Node( this, module, static_cast<int>(layout.size()) + 2 - module->level );
 
 			module_node[module->name] = n;
 			_nodes.back().push_back( n );
@@ -102,9 +98,7 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 		xpos += dx;
 	}
 
-
 	for( auto& [module, node] : module_node ) {
-
 		for( auto* d : node->info()->deps ) {
 			auto e = new Edge( module_node.at( module ), module_node.at( d->name ) );
 			_edges.push_back( e );
@@ -137,7 +131,7 @@ int sign( T val )
 void GraphWidget::updatePosition( Node* node, const std::vector<Node*>& other )
 {
 	if( !_scene || _scene->mouseGrabberItem() == node ) {
-		return ;
+		return;
 	}
 
 	// Try to stay away from other nodes of the same level

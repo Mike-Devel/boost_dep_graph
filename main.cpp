@@ -43,48 +43,8 @@ void print_stats( const modules_data& modules )
 	std::cout << "Modules without a cmake file: " << count << std::endl;
 }
 
-const std::vector<std::string> filter_list_base{"utility",
-												"core",
-												"assert",
-												"type_traits",
-												"smart_ptr",
-												"detail",
-												"throw_exception",
-												"signals",
-												"config",
-												"(unknown)",
-												"log"};
-
-const std::vector<std::string> filter_list_11{"bind",
-											  "function",
-											  "foreach",
-											  "chrono",
-											  "atomic",
-											  "tuple",
-											  "static_assert",
-											  "lambda",
-											  "move",
-											  "smart_ptr",
-											  "type_traits",
-											  "local_function",
-											  "mpl",
-											  "array",
-											  "rational",
-											  "typeof",
-											  "type_index",
-											  "random",
-											  "system"};
-
-const std::vector<std::string> filter_list_17{"any", "variant", "optional", "thread"};
-
-const std::vector<std::string> filter_list_extended{
-	"any",        "array",         "align",   "atomic",   "bind",   "chrono",     "date_time", "function", "foreach",
-	"filesystem", "lambda",        "integer", "iterator", "mpl",    "move",       "optional",  "regex",    "range",
-	"random",     "static_assert", "tuple",   "thread",   "typeof", "type_index", "variant"};
-
 // This is the list of boost libraries that is ignored in the following process
-const std::vector<std::string> filter; /*= mdev::merge(
-	filter_list_11, filter_list_17 ); //= filter_list_base2; //	=merge(filter_list_base,filter_list_extended);*/
+
 
 std::ostream& operator<<( std::ostream& stream, const QString& str )
 {
@@ -117,10 +77,11 @@ std::filesystem::path determine_boost_root()
 	return boost_root;
 }
 
+
+const std::vector<std::string> filter; // ={mpl, smart_ptr};
 int main( int argc, char** argv )
 {
 	QApplication app( argc, argv );
-
 	QMainWindow main_window;
 
 	auto graph_widget = new GraphWidget();
