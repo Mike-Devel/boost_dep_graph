@@ -2339,19 +2339,19 @@ namespace Matchers {
 
         struct EqualsMatcher : StringMatcherBase {
             EqualsMatcher( CasedString const& comparator );
-            bool match( std::string const& source ) const override;
+            bool match( std::string const& _src ) const override;
         };
         struct ContainsMatcher : StringMatcherBase {
             ContainsMatcher( CasedString const& comparator );
-            bool match( std::string const& source ) const override;
+            bool match( std::string const& _src ) const override;
         };
         struct StartsWithMatcher : StringMatcherBase {
             StartsWithMatcher( CasedString const& comparator );
-            bool match( std::string const& source ) const override;
+            bool match( std::string const& _src ) const override;
         };
         struct EndsWithMatcher : StringMatcherBase {
             EndsWithMatcher( CasedString const& comparator );
-            bool match( std::string const& source ) const override;
+            bool match( std::string const& _src ) const override;
         };
 
         struct RegexMatcher : MatcherBase<std::string> {
@@ -5715,28 +5715,28 @@ namespace detail {
     };
 
     template<typename T>
-    inline auto convertInto( std::string const &source, T& target ) -> ParserResult {
+    inline auto convertInto( std::string const &_src, T& target ) -> ParserResult {
         std::stringstream ss;
-        ss << source;
+        ss << _src;
         ss >> target;
         if( ss.fail() )
-            return ParserResult::runtimeError( "Unable to convert '" + source + "' to destination type" );
+            return ParserResult::runtimeError( "Unable to convert '" + _src + "' to destination type" );
         else
             return ParserResult::ok( ParseResultType::Matched );
     }
-    inline auto convertInto( std::string const &source, std::string& target ) -> ParserResult {
-        target = source;
+    inline auto convertInto( std::string const &_src, std::string& target ) -> ParserResult {
+        target = _src;
         return ParserResult::ok( ParseResultType::Matched );
     }
-    inline auto convertInto( std::string const &source, bool &target ) -> ParserResult {
-        std::string srcLC = source;
+    inline auto convertInto( std::string const &_src, bool &target ) -> ParserResult {
+        std::string srcLC = _src;
         std::transform( srcLC.begin(), srcLC.end(), srcLC.begin(), []( char c ) { return static_cast<char>( ::tolower(c) ); } );
         if (srcLC == "y" || srcLC == "1" || srcLC == "true" || srcLC == "yes" || srcLC == "on")
             target = true;
         else if (srcLC == "n" || srcLC == "0" || srcLC == "false" || srcLC == "no" || srcLC == "off")
             target = false;
         else
-            return ParserResult::runtimeError( "Expected a boolean value but did not recognise: '" + source + "'" );
+            return ParserResult::runtimeError( "Expected a boolean value but did not recognise: '" + _src + "'" );
         return ParserResult::ok( ParseResultType::Matched );
     }
 
@@ -7901,26 +7901,26 @@ namespace Matchers {
 
         EqualsMatcher::EqualsMatcher( CasedString const& comparator ) : StringMatcherBase( "equals", comparator ) {}
 
-        bool EqualsMatcher::match( std::string const& source ) const {
-            return m_comparator.adjustString( source ) == m_comparator.m_str;
+        bool EqualsMatcher::match( std::string const& _src ) const {
+            return m_comparator.adjustString( _src ) == m_comparator.m_str;
         }
 
         ContainsMatcher::ContainsMatcher( CasedString const& comparator ) : StringMatcherBase( "contains", comparator ) {}
 
-        bool ContainsMatcher::match( std::string const& source ) const {
-            return contains( m_comparator.adjustString( source ), m_comparator.m_str );
+        bool ContainsMatcher::match( std::string const& _src ) const {
+            return contains( m_comparator.adjustString( _src ), m_comparator.m_str );
         }
 
         StartsWithMatcher::StartsWithMatcher( CasedString const& comparator ) : StringMatcherBase( "starts with", comparator ) {}
 
-        bool StartsWithMatcher::match( std::string const& source ) const {
-            return startsWith( m_comparator.adjustString( source ), m_comparator.m_str );
+        bool StartsWithMatcher::match( std::string const& _src ) const {
+            return startsWith( m_comparator.adjustString( _src ), m_comparator.m_str );
         }
 
         EndsWithMatcher::EndsWithMatcher( CasedString const& comparator ) : StringMatcherBase( "ends with", comparator ) {}
 
-        bool EndsWithMatcher::match( std::string const& source ) const {
-            return endsWith( m_comparator.adjustString( source ), m_comparator.m_str );
+        bool EndsWithMatcher::match( std::string const& _src ) const {
+            return endsWith( m_comparator.adjustString( _src ), m_comparator.m_str );
         }
 
         RegexMatcher::RegexMatcher(std::string regex, CaseSensitive::Choice caseSensitivity): m_regex(std::move(regex)), m_caseSensitivity(caseSensitivity) {}
