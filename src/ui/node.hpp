@@ -4,13 +4,16 @@
 #include <QString>
 #include <vector>
 
+#include "../utils.hpp"
+
 class QGraphicsSceneMouseEvent;
 
 namespace mdev::bdg {
 
 struct ModuleInfo;
 
-class Edge;
+namespace gui {
+
 class GraphWidget;
 
 class Node : public QGraphicsItem {
@@ -21,8 +24,8 @@ public:
 	QPainterPath shape() const override;
 	void         paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget ) override;
 
-	void               addEdge( Edge* edge );
-	std::vector<Edge*> edges() const;
+	void addNode( const Node* );
+	mdev::span<const Node* const> nodes() const;
 
 	void select() noexcept { _is_selected = true; }
 	void deselect() noexcept { _is_selected = false; }
@@ -36,10 +39,13 @@ protected:
 
 private:
 	QString            _name;
-	std::vector<Edge*> _edgeList;
+	std::vector<const Node*> _node_list; //other nodes that attract this node
+
 	GraphWidget*       _graph       = nullptr;
 	ModuleInfo*        _moduleInfo  = nullptr;
 	bool               _is_selected = false;
 };
+
+}
 
 } // namespace mdev::bdg

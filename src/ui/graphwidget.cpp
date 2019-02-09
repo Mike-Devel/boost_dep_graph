@@ -1,6 +1,5 @@
 #include "graphwidget.hpp"
 
-#include "edge.hpp"
 #include "node.hpp"
 
 #include "../ModuleInfo.hpp"
@@ -9,9 +8,10 @@
 #include <QKeyEvent>
 
 #include <cmath>
+#include <chrono>
+#include <iostream>
 
-namespace mdev {
-namespace bdg {
+namespace mdev::bdg::gui {
 
 GraphWidget::GraphWidget( QWidget* parent )
 	: QGraphicsView( parent )
@@ -27,6 +27,7 @@ GraphWidget::GraphWidget( QWidget* parent )
 	setRenderHint( QPainter::Antialiasing );
 	setTransformationAnchor( AnchorUnderMouse );
 	setMinimumSize( 1800, 1000 );
+	setDragMode( QGraphicsView::DragMode::ScrollHandDrag );
 }
 
 void GraphWidget::change_selected_node( Node* node )
@@ -36,6 +37,8 @@ void GraphWidget::change_selected_node( Node* node )
 	}
 	_selectedNode = node;
 	node->select();
+	_edges.update_style();
+
 }
 
 void GraphWidget::keyPressEvent( QKeyEvent* event )
@@ -49,31 +52,49 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 	}
 }
 
-void GraphWidget::timerEvent( QTimerEvent* )
-{
+void GraphWidget::update_positions() {
 	for( auto&& group : _nodes ) {
-		for( auto node : group ) {
+		for( auto* node : group ) {
 			updatePosition( node, group );
 		}
+	}
+	_edges.update_positions();
+
+}
+
+void GraphWidget::timerEvent( QTimerEvent* )
+{
+	update_positions();
+
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
+	static auto last = std::chrono::system_clock::now();
+	static auto cnt  = 0;
+	if( ++cnt >= 100 ) {
+		cnt = 0;
+		std::cout << 100 * 1s/ (system_clock::now() - last) << "\n";
+		last = system_clock::now();
 	}
 }
 
 void GraphWidget::wheelEvent( QWheelEvent* event )
 {
-	auto factor = pow( 2.0, -event->delta() / 240.0 );
+	auto factor = pow( 2.0, event->delta() / 240.0 );
 	scale( factor, factor );
+	event->accept();
 }
 
 void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout )
 {
 	clear();
 
-	std::map<std::string, Node*> module_node;
+	std::map<std::string, Node*> module_node_map;
 
 	int       xpos = _scene->sceneRect().x();
 	const int dx   = _scene->sceneRect().width() / layout.size();
 	for( auto& group : layout ) {
-		_nodes.push_back( {} );
+
+		// determine parameters for iteration (inital position  and position
 		int ypos = 0;
 		int dy   = 1;
 
@@ -84,10 +105,12 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 			ypos = _scene->sceneRect().height() / 2;
 		}
 
+		_nodes.push_back( {} );
 		for( auto& module : group ) {
-			auto n = new Node( this, module, static_cast<int>(layout.size()) + 2 - module->level );
+			int  z_level = static_cast<int>( layout.size() ) + 2 - module->level;
+			auto n = new Node( this, module, z_level );
 
-			module_node[module->name] = n;
+			module_node_map[module->name] = n;
 			_nodes.back().push_back( n );
 
 			n->setPos( xpos, ypos );
@@ -98,35 +121,37 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 		xpos += dx;
 	}
 
-	for( auto& [module, node] : module_node ) {
+	std::vector<std::pair<Node*, Node*>> connections;
+
+	for( auto& [module, node] : module_node_map ) {
+		Node* src = module_node_map.at( module );
 		for( auto* d : node->info()->deps ) {
-			auto e = new Edge( module_node.at( module ), module_node.at( d->name ) );
-			_edges.push_back( e );
-			_scene->addItem( e );
+			Node* dest = module_node_map.at( d->name );
+			dest->addNode( src );
+			connections.emplace_back( src, dest );
 		}
 	}
-	_timer_id = startTimer( 1000 / 40 );
+
+	// get the layout into a (mostly) stable state first
+	for( int i = 0; i < 200; ++i ) {
+		update_positions();
+	}
+
+	_edges.create_edges( *_scene, connections );
+
+
+	_timer_id = startTimer( 1000 / 20 );
 }
 
 void GraphWidget::clear()
 {
 	killTimer( _timer_id );
 	_timer_id = 0;
+	_selectedNode = nullptr;
 	_nodes.clear();
 	_edges.clear();
-	_selectedNode = nullptr;
 	_scene->clear();
 }
-
-namespace {
-
-template<typename T>
-int sign( T val )
-{
-	return ( T( 0 ) < val ) - ( val < T( 0 ) );
-}
-
-} // namespace
 
 void GraphWidget::updatePosition( Node* node, const std::vector<Node*>& other )
 {
@@ -145,23 +170,25 @@ void GraphWidget::updatePosition( Node* node, const std::vector<Node*>& other )
 
 		auto dir = -sign( vec.y() );
 
-		auto dy_abs = std::sqrt( vec.y() * vec.y() );
+		// we also take the distance in x direction into account as it is relevant when reordering nodes by hand
+		auto abs_dist = std::sqrt( vec.y() * vec.y() + vec.x() * vec.x() );
 
-		const double min_dist = 30;
+		const double min_dist = 20;
 		const double force    = 100;
 
-		yvel += dir * force                      //
-				* min_dist * min_dist * min_dist //
-				/ ( dy_abs * dy_abs * dy_abs + min_dist * min_dist * min_dist );
+		yvel += dir * force                        //
+				* min_dist * min_dist * min_dist   //
+				/ (                                //
+					abs_dist * abs_dist * abs_dist //
+					+ min_dist * min_dist * min_dist );
 	}
 
 	// Node gets attracted from dependees
-	double weight = 0.01 / ( node->edges().size() + 1 );
-	for( Edge* edge : node->edges() ) {
-		if( edge->destNode() == node ) {
-			QPointF vec = edge->sourceNode()->pos() - node->pos();
-			yvel += vec.y() * weight;
-		}
+	auto   deps = node->nodes();
+	double weight    = 0.01 / ( deps.size() + 1 );
+	for( const Node* n : deps ) {
+		QPointF vec = n->pos() - node->pos();
+		yvel += vec.y() * weight;
 	}
 
 	auto newPos = node->pos() + QPointF( 0, yvel ) * 2;
@@ -176,11 +203,6 @@ void GraphWidget::updatePosition( Node* node, const std::vector<Node*>& other )
 	newPos.setY( std::clamp( newPos.y(), LowerBound, UpperBound ) );
 
 	node->setPos( newPos );
-
-	for( auto* edge : _edges ) {
-		edge->adjust();
-	}
 }
 
-} // namespace bdg
-} // namespace mdev
+} // namespace mdev::bdg::gui
