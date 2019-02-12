@@ -6,6 +6,9 @@
 #include "../utils.hpp"
 
 #include <QKeyEvent>
+#include <QMarginsF>
+#include <QSurfaceFormat>
+#include <QOpenGLWidget>
 
 #include <cmath>
 #include <chrono>
@@ -21,6 +24,13 @@ GraphWidget::GraphWidget( QWidget* parent )
 	_scene->setItemIndexMethod( QGraphicsScene::NoIndex );
 	_scene->setSceneRect( -800, -500, 1800, 1100 );
 	setScene( _scene );
+
+	QSurfaceFormat fmt;
+	fmt.setSamples( 4 );
+	QSurfaceFormat::setDefaultFormat( fmt );
+
+	setViewport( new QOpenGLWidget());
+	setBackgroundBrush( QBrush( Qt::white, Qt::SolidPattern ) );
 
 	setCacheMode( CacheNone );
 	setViewportUpdateMode( FullViewportUpdate );
