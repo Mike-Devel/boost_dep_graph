@@ -1,5 +1,6 @@
 #include "graphwidget.hpp"
 
+
 #include "node.hpp"
 
 #include "../ModuleInfo.hpp"
@@ -11,10 +12,66 @@
 #include <QOpenGLWidget>
 
 #include <cmath>
+
+#define BDG_CHECK_PERF
+
+#ifdef BDG_CHECK_PERF
 #include <chrono>
 #include <iostream>
+#endif // BDG_CHECK_PERF
+
 
 namespace mdev::bdg::gui {
+
+namespace {
+void update_position( Node* node, const std::vector<Node*>& other, const QRectF& scene_rect )
+{
+	// Try to stay away from other nodes of the same level
+	constexpr double min_dist  = 20;  // ~The minimum distance between two nodes we try to hold
+	constexpr double rep_force = 100; // weight of repellent forces
+
+	const auto current_pos = node->pos();
+
+	qreal yvel = 0;
+	for( Node* other_node : other ) {
+		if( other_node == node ) {
+			continue;
+		}
+
+		const QPointF vec = other_node->pos() - current_pos;
+
+		const auto dir = -sign( vec.y() );
+
+		// we also take the distance in x direction into account as it is relevant when reordering nodes by hand
+		const auto abs_dist = std::sqrt( vec.y() * vec.y() + vec.x() * vec.x() );
+
+		yvel += dir * rep_force                    //
+				* min_dist * min_dist * min_dist   //
+				/ (                                //
+					abs_dist * abs_dist * abs_dist //
+					+ min_dist * min_dist * min_dist );
+	}
+
+	// Node gets attracted from dependees
+	constexpr double attr_force = 0.001;
+	const auto       deps       = node->nodes();
+
+	for( const Node* other_node : deps ) {
+		QPointF vec = other_node->pos() - current_pos;
+		yvel += vec.y() * attr_force;
+	}
+
+	// Calculate new position
+	auto newPos = current_pos + QPointF( 0, yvel ) * 2;
+
+	// TODO: is there a builtin for that?
+	newPos.setX( std::clamp( newPos.x(), scene_rect.left(), scene_rect.right() ) );
+	newPos.setY( std::clamp( newPos.y(), scene_rect.top(), scene_rect.bottom() ) );
+
+	node->setPos( newPos );
+}
+
+} // namespace
 
 GraphWidget::GraphWidget( QWidget* parent )
 	: QGraphicsView( parent )
@@ -22,7 +79,7 @@ GraphWidget::GraphWidget( QWidget* parent )
 {
 	_scene = new QGraphicsScene( this );
 	_scene->setItemIndexMethod( QGraphicsScene::NoIndex );
-	_scene->setSceneRect( -800, -500, 1800, 1100 );
+	_scene->setSceneRect( -900, -550, 1800, 1100 );
 	setScene( _scene );
 
 	QSurfaceFormat fmt;
@@ -36,8 +93,8 @@ GraphWidget::GraphWidget( QWidget* parent )
 	setViewportUpdateMode( FullViewportUpdate );
 	setRenderHint( QPainter::Antialiasing );
 	setTransformationAnchor( AnchorUnderMouse );
-	setMinimumSize( 1800, 1000 );
 	setDragMode( QGraphicsView::DragMode::ScrollHandDrag );
+
 }
 
 void GraphWidget::change_selected_node( Node* node )
@@ -48,7 +105,6 @@ void GraphWidget::change_selected_node( Node* node )
 	_selectedNode = node;
 	node->select();
 	_edges.update_style();
-
 }
 
 void GraphWidget::keyPressEvent( QKeyEvent* event )
@@ -62,19 +118,29 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 	}
 }
 
-void GraphWidget::update_positions() {
+void GraphWidget::update_positions()
+{
+	constexpr QMarginsF margins( 10, 10, 10, 10 );
+
+	auto area = _scene->sceneRect().marginsRemoved( margins );
+
 	for( auto&& group : _nodes ) {
 		for( auto* node : group ) {
-			updatePosition( node, group );
+			if( _scene->mouseGrabberItem() == node ) {
+				continue;
+			}
+			update_position( node, group, area );
 		}
 	}
 	_edges.update_positions();
-
 }
 
 void GraphWidget::timerEvent( QTimerEvent* )
 {
 	update_positions();
+
+#ifdef BDG_CHECK_PERF
+
 
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
@@ -82,9 +148,10 @@ void GraphWidget::timerEvent( QTimerEvent* )
 	static auto cnt  = 0;
 	if( ++cnt >= 100 ) {
 		cnt = 0;
-		std::cout << 100 * 1s/ (system_clock::now() - last) << "\n";
+		std::cout << 100 * 1s / ( system_clock::now() - last ) << "\n";
 		last = system_clock::now();
 	}
+#endif // BDG_CHECK_PERF
 }
 
 void GraphWidget::wheelEvent( QWheelEvent* event )
@@ -118,7 +185,7 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 		_nodes.push_back( {} );
 		for( auto& module : group ) {
 			int  z_level = static_cast<int>( layout.size() ) + 2 - module->level;
-			auto n = new Node( this, module, z_level );
+			auto n       = new Node( this, module, z_level );
 
 			module_node_map[module->name] = n;
 			_nodes.back().push_back( n );
@@ -149,70 +216,17 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 
 	_edges.create_edges( *_scene, connections );
 
-
 	_timer_id = startTimer( 1000 / 20 );
 }
 
 void GraphWidget::clear()
 {
 	killTimer( _timer_id );
-	_timer_id = 0;
+	_timer_id     = 0;
 	_selectedNode = nullptr;
 	_nodes.clear();
 	_edges.clear();
 	_scene->clear();
-}
-
-void GraphWidget::updatePosition( Node* node, const std::vector<Node*>& other )
-{
-	if( !_scene || _scene->mouseGrabberItem() == node ) {
-		return;
-	}
-
-	// Try to stay away from other nodes of the same level
-	qreal yvel = 0;
-	for( Node* other_node : other ) {
-		if( other_node == node ) {
-			continue;
-		}
-
-		QPointF vec = other_node->pos() - node->pos();
-
-		auto dir = -sign( vec.y() );
-
-		// we also take the distance in x direction into account as it is relevant when reordering nodes by hand
-		auto abs_dist = std::sqrt( vec.y() * vec.y() + vec.x() * vec.x() );
-
-		const double min_dist = 20;
-		const double force    = 100;
-
-		yvel += dir * force                        //
-				* min_dist * min_dist * min_dist   //
-				/ (                                //
-					abs_dist * abs_dist * abs_dist //
-					+ min_dist * min_dist * min_dist );
-	}
-
-	// Node gets attracted from dependees
-	auto   deps = node->nodes();
-	double weight    = 0.01 / ( deps.size() + 1 );
-	for( const Node* n : deps ) {
-		QPointF vec = n->pos() - node->pos();
-		yvel += vec.y() * weight;
-	}
-
-	auto newPos = node->pos() + QPointF( 0, yvel ) * 2;
-
-	// Lets only place leaf nodes on the border
-	const auto LowerBound = scene()->sceneRect().top() + 10;
-	const auto UpperBound = scene()->sceneRect().bottom() - 10;
-	const auto LeftBound  = scene()->sceneRect().left() + 10;
-	const auto RightBound = scene()->sceneRect().right() - 10;
-
-	newPos.setX( std::clamp( newPos.x(), LeftBound, RightBound ) );
-	newPos.setY( std::clamp( newPos.y(), LowerBound, UpperBound ) );
-
-	node->setPos( newPos );
 }
 
 } // namespace mdev::bdg::gui

@@ -12,7 +12,6 @@ struct ModuleInfo;
 namespace gui {
 
 class Node;
-//class Edge;
 
 class GraphWidget : public QGraphicsView {
 	Q_OBJECT
@@ -36,7 +35,6 @@ protected:
 
 private:
 	void update_positions();
-	void updatePosition( Node* node, const std::vector<Node*>& other );
 
 	std::vector<std::vector<Node*>> _nodes;
 	QGraphicsScene*                 _scene = nullptr;
