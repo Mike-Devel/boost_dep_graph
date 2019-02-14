@@ -93,7 +93,10 @@ GraphWidget::GraphWidget( QWidget* parent )
 	setViewportUpdateMode( FullViewportUpdate );
 	setRenderHint( QPainter::Antialiasing );
 	setTransformationAnchor( AnchorUnderMouse );
+	setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+	setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
 	setDragMode( QGraphicsView::DragMode::ScrollHandDrag );
+	fitInView( _scene->sceneRect(), Qt::KeepAspectRatio );
 
 }
 
@@ -116,6 +119,11 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 			break;
 		default: QGraphicsView::keyPressEvent( event );
 	}
+}
+
+void GraphWidget::resizeEvent( QResizeEvent* event ) {
+	fitInView( _scene->sceneRect(), Qt::KeepAspectRatio );
+	event->accept();
 }
 
 void GraphWidget::update_positions()

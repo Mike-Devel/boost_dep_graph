@@ -32,6 +32,7 @@ protected:
 	void keyPressEvent( QKeyEvent* event ) override;
 	void timerEvent( QTimerEvent* event ) override;
 	void wheelEvent( QWheelEvent* event ) override;
+	void resizeEvent( QResizeEvent* event ) override;
 
 private:
 	void update_positions();
