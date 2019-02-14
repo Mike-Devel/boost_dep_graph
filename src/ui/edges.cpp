@@ -1,7 +1,7 @@
 #include "edges.hpp"
 
-#include "node.hpp"
 #include "gui_cfg.hpp"
+#include "node.hpp"
 
 #include <core/ModuleInfo.hpp>
 
@@ -46,7 +46,7 @@ QLineF get_arrow_line( QLineF endpoints )
 	QPointF edgeOffset( ( endpoints.dx() * cfg::node_radius ) / length,
 						( endpoints.dy() * cfg::node_radius ) / length );
 
-	return QLineF {endpoints.p1() + edgeOffset, endpoints.p2() - edgeOffset};
+	return QLineF{endpoints.p1() + edgeOffset, endpoints.p2() - edgeOffset};
 }
 
 } // namespace
@@ -84,7 +84,7 @@ void Edge::update_positions()
 		_cached_arrow_head = get_arrow_head( _cached_arrow_line );
 	} else {
 		_cached_arrow_head.clear();
-		_cached_arrow_line = QLineF {};
+		_cached_arrow_line = QLineF{};
 	}
 }
 
@@ -92,23 +92,21 @@ void Edge::update_style()
 {
 	if( !_src || !_dest ) return;
 
-	int    line_width;
-	QColor line_color;
-	// highlighte edges from/to selected node
-	if( _src->is_selected() || _dest->is_selected() ) {
-		line_color = Qt::black;
-		line_width = 2;
+	auto is_selected = _src->is_selected() || _dest->is_selected();
+	auto no_cmake    = !_dest->info()->has_cmake;
+
+	QColor line_color = no_cmake ? Qt::red : ( is_selected ? Qt::black : Qt::darkGray );
+
+	int line_width = is_selected ? 3 : 1;
+
+	if( is_selected ) {
 		this->setZValue( 1 );
+	} else if( no_cmake ) {
+		this->setZValue( -1 );
 	} else {
-		line_color = Qt::darkGray;
-		line_width = 1;
 		this->setZValue( -2 );
 	}
 
-	if( !_dest->info()->has_cmake ) {
-		line_color = Qt::red;
-		this->setZValue( -1 );
-	}
 	_line_pen = QPen( line_color, line_width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
 }
 

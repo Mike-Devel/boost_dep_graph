@@ -1,6 +1,5 @@
 
 #include <ui/graphwidget.hpp>
-#include <ui/layout.hpp>
 
 #include <core/ModuleInfo.hpp>
 #include <core/analysis.hpp>
@@ -30,12 +29,14 @@ void print_stats( const modules_data& modules )
 	std::vector<const ModuleInfo*> modules_sorted_by_dep_count = get_modules_sorted_by_dep_count( modules );
 
 	int count = 0;
+	std::cout <<"Total Rev Dep cnt" << "/" << "without cmake" << "/" << "blocked" << "\t" << "name" << "\n";
 	for( auto m : modules_sorted_by_dep_count ) {
 		if( !m->has_cmake ) {
 			count++;
 			auto ncdpcnt = std::count_if(
 				m->all_rev_deps.begin(), m->all_rev_deps.end(), []( const auto& p ) { return !p->has_cmake; } );
-			std::cout << m->all_rev_deps.size() << "/" << ncdpcnt << "\t" << m->name << "\n";
+			auto blocked_cnt = block_count( *m );
+			std::cout << m->all_rev_deps.size() << "/" << ncdpcnt << "/" << blocked_cnt << "\t" << m->name << "\n";
 		}
 	}
 	std::cout << "Modules without a cmake file: " << count << std::endl;
@@ -93,7 +94,7 @@ int main( int argc, char** argv )
 		modules = generate_module_list( boost_root, filter );
 
 		print_stats( modules );
-		graph_widget->set_data( gui::layout_boost_modules( modules ) );
+		graph_widget->set_data( &modules );
 	};
 
 	rescan();

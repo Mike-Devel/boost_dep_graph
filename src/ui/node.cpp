@@ -23,6 +23,9 @@ Node::Node( GraphWidget* graphWidget, ModuleInfo* module, int z_level )
 	setFlag( ItemSendsGeometryChanges );
 	setCacheMode( DeviceCoordinateCache );
 	setZValue( z_level );
+
+	QFontMetrics fm( cfg::module_name_font );
+	_text_size             = fm.size(0, _name );
 }
 
 void Node::addNode( const Node* node )
@@ -38,8 +41,11 @@ mdev::span<const Node* const> Node::nodes() const
 
 QRectF Node::boundingRect() const
 {
-	qreal adjust = 2;
-	return QRectF( -10 - adjust, -30 - adjust, 150 + adjust, 50 + adjust );
+	QRectF node_rect = QRectF( -cfg::node_radius, -cfg::node_radius, cfg::node_radius*2, cfg::node_radius*2 );
+	QRectF text_rect
+		= QRectF( QPointF( -cfg::node_radius, -cfg::node_radius - _text_size.height() * 2 ), _text_size * 2 );
+
+	return node_rect.united( text_rect );
 }
 
 QPainterPath Node::shape() const
@@ -75,11 +81,18 @@ void Node::paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWi
 	}
 	painter->setBrush( gradient );
 
+
 	painter->setPen( QPen( Qt::black, 0 ) );
-	painter->drawEllipse( -10, -10, 20, 20 );
-	painter->setFont( QFont( "Helvetica", 15 ) );
+	painter->drawEllipse( -cfg::node_radius, -cfg::node_radius, cfg::node_radius * 2, cfg::node_radius*2 );
+
+	//double scaleValue = scale() / painter->transform().m11();
+	//painter->save();
+	//painter->scale( scaleValue, scaleValue );
+	painter->setFont( cfg::module_name_font );
 	painter->setPen( QPen( Qt::black, 3 ) );
-	painter->drawText( QPoint {-10, -10}, _name );
+	painter->drawText( QPointF{-cfg::node_radius, -cfg::node_radius}, _name );
+
+	//painter->restore();
 }
 
 void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )

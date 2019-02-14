@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QSize>
 #include <QGraphicsItem>
 #include <QString>
 #include <vector>
@@ -24,7 +25,7 @@ public:
 	QPainterPath shape() const override;
 	void         paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget ) override;
 
-	void addNode( const Node* );
+	void                          addNode( const Node* );
 	mdev::span<const Node* const> nodes() const;
 
 	void select() noexcept { _is_selected = true; }
@@ -38,14 +39,15 @@ protected:
 	void mouseReleaseEvent( QGraphicsSceneMouseEvent* event ) override;
 
 private:
-	QString            _name;
-	std::vector<const Node*> _node_list; //other nodes that attract this node
+	QString                  _name;
+	QSize                    _text_size;
+	std::vector<const Node*> _node_list; // other nodes that attract this node
 
-	GraphWidget*       _graph       = nullptr;
-	ModuleInfo*        _moduleInfo  = nullptr;
-	bool               _is_selected = false;
+	GraphWidget* _graph       = nullptr;
+	ModuleInfo*  _moduleInfo  = nullptr;
+	bool         _is_selected = false;
 };
 
-}
+} // namespace gui
 
 } // namespace mdev::bdg

@@ -1,6 +1,7 @@
 #include "graphwidget.hpp"
 
-
+#include "gui_cfg.hpp"
+#include "layout.hpp"
 #include "node.hpp"
 
 #include <core/ModuleInfo.hpp>
@@ -8,32 +9,34 @@
 
 #include <QKeyEvent>
 #include <QMarginsF>
-#include <QSurfaceFormat>
 #include <QOpenGLWidget>
+#include <QSurfaceFormat>
 
 #include <cmath>
 
-#define BDG_CHECK_PERF
+//#define BDG_CHECK_PERF
 
 #ifdef BDG_CHECK_PERF
 #include <chrono>
 #include <iostream>
 #endif // BDG_CHECK_PERF
 
-
 namespace mdev::bdg::gui {
 
 namespace {
-void update_position( Node* node, const std::vector<Node*>& other, const QRectF& scene_rect )
+void update_position( Node*                     node,
+					  const std::vector<Node*>& same_level_nodes,
+					  const std::vector<Node*>& next_level_nodes,
+					  const QRectF&             scene_rect )
 {
 	// Try to stay away from other nodes of the same level
-	constexpr double min_dist  = 20;  // ~The minimum distance between two nodes we try to hold
-	constexpr double rep_force = 100; // weight of repellent forces
+	constexpr double rep_force     = 300; // weight of repellent forces
+	constexpr auto   normalization = cfg::min_node_dist * cfg::min_node_dist * cfg::min_node_dist;
 
 	const auto current_pos = node->pos();
 
 	qreal yvel = 0;
-	for( Node* other_node : other ) {
+	for( Node* other_node : same_level_nodes ) {
 		if( other_node == node ) {
 			continue;
 		}
@@ -45,11 +48,28 @@ void update_position( Node* node, const std::vector<Node*>& other, const QRectF&
 		// we also take the distance in x direction into account as it is relevant when reordering nodes by hand
 		const auto abs_dist = std::sqrt( vec.y() * vec.y() + vec.x() * vec.x() );
 
-		yvel += dir * rep_force                    //
-				* min_dist * min_dist * min_dist   //
-				/ (                                //
-					abs_dist * abs_dist * abs_dist //
-					+ min_dist * min_dist * min_dist );
+		yvel += dir * rep_force * normalization      //
+				/ (                                  //
+					  abs_dist * abs_dist * abs_dist //
+					  + normalization );
+	}
+
+	for( Node* other_node : next_level_nodes ) {
+
+		const QPointF vec = other_node->pos() - current_pos;
+
+		const auto dir = -sign( vec.y() );
+
+		// we also take the distance in x direction into account as it is relevant when reordering nodes by hand
+		const auto abs_dist = std::sqrt( vec.y() * vec.y() + vec.x() * vec.x() );
+
+		constexpr auto normalization2
+			= cfg::min_node_dist * cfg::min_node_dist * cfg::min_node_dist * cfg::min_node_dist;
+
+		yvel += dir * rep_force * normalization2      //
+				/ (                                  //
+					  abs_dist * abs_dist * abs_dist * abs_dist //
+					  + normalization2 );
 	}
 
 	// Node gets attracted from dependees
@@ -77,16 +97,16 @@ GraphWidget::GraphWidget( QWidget* parent )
 	: QGraphicsView( parent )
 	, _timer_id( 0 )
 {
-	_scene = new QGraphicsScene( this );
-	_scene->setItemIndexMethod( QGraphicsScene::NoIndex );
-	_scene->setSceneRect( -900, -550, 1800, 1100 );
-	setScene( _scene );
+	auto sc = new QGraphicsScene( this );
+	sc->setItemIndexMethod( QGraphicsScene::NoIndex );
+	sc->setSceneRect( QRectF( QPointF{}, cfg::scene_size ) );
+	setScene( sc );
 
 	QSurfaceFormat fmt;
-	fmt.setSamples( 4 );
+	fmt.setSamples( 8 );
 	QSurfaceFormat::setDefaultFormat( fmt );
 
-	setViewport( new QOpenGLWidget());
+	setViewport( new QOpenGLWidget() );
 	setBackgroundBrush( QBrush( Qt::white, Qt::SolidPattern ) );
 
 	setCacheMode( CacheNone );
@@ -96,8 +116,7 @@ GraphWidget::GraphWidget( QWidget* parent )
 	setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
 	setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
 	setDragMode( QGraphicsView::DragMode::ScrollHandDrag );
-	fitInView( _scene->sceneRect(), Qt::KeepAspectRatio );
-
+	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
 }
 
 void GraphWidget::change_selected_node( Node* node )
@@ -121,27 +140,48 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 	}
 }
 
-void GraphWidget::resizeEvent( QResizeEvent* event ) {
-	fitInView( _scene->sceneRect(), Qt::KeepAspectRatio );
+void GraphWidget::resizeEvent( QResizeEvent* event )
+{
+
+	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
+
+	//auto ratio = 1.0 * event->size().width() / event->size().height();
+	//auto rect    = scene()->sceneRect();
+	//auto new_width = rect.height() * ratio;
+	//auto x_scale   = new_width / rect.width();
+
+	//rect.setWidth( rect.height() *ratio );
+
+	//for( auto& i : scene()->items() ) {
+	//	i->setX( i->x() * x_scale );
+	//}
+
+	//scene()->setSceneRect( rect );
+	//update_positions();
 	event->accept();
+
+	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
 }
 
 void GraphWidget::update_positions()
 {
-	constexpr QMarginsF margins( 10, 10, 10, 10 );
+	auto area = scene()->sceneRect().marginsRemoved( cfg::margins );
 
-	auto area = _scene->sceneRect().marginsRemoved( margins );
-
-	for( auto&& group : _nodes ) {
+	for( int level = 0; level < _nodes.size(); ++level ) {
+		auto& group = _nodes[level];
 		for( auto* node : group ) {
-			if( _scene->mouseGrabberItem() == node ) {
+			if( scene()->mouseGrabberItem() == node ) {
 				continue;
 			}
-			update_position( node, group, area );
+			if( level > 0 ) {
+				update_position( node, group, _nodes[level - 1], area );
+			} else {
+				update_position( node, group, std::vector<Node*>{}, area );
+			}
 		}
 	}
 	_edges.update_positions();
-}
+} // namespace mdev::bdg::gui
 
 void GraphWidget::timerEvent( QTimerEvent* )
 {
@@ -149,15 +189,15 @@ void GraphWidget::timerEvent( QTimerEvent* )
 
 #ifdef BDG_CHECK_PERF
 
-
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 	static auto last = std::chrono::system_clock::now();
 	static auto cnt  = 0;
-	if( ++cnt >= 100 ) {
-		cnt = 0;
-		std::cout << 100 * 1s / ( system_clock::now() - last ) << "\n";
+	cnt++;
+	if( ( system_clock::now() - last ) > 5s ) {
+		std::cout << cnt / ( ( system_clock::now() - last ) / 1s ) << "\n";
 		last = system_clock::now();
+		cnt  = 0;
 	}
 #endif // BDG_CHECK_PERF
 }
@@ -169,41 +209,31 @@ void GraphWidget::wheelEvent( QWheelEvent* event )
 	event->accept();
 }
 
-void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout )
+void GraphWidget::set_data( modules_data* modules )
 {
 	clear();
 
+	auto max_level = std::max_element( modules->begin(),
+									   modules->end(),
+									   []( auto& l, auto& r ) { return l.second.level < r.second.level; } )
+						 ->second.level;
+
+	auto layout = gui::layout_boost_modules( *modules, this->sceneRect().marginsRemoved( cfg::margins ) );
+
 	std::map<std::string, Node*> module_node_map;
 
-	int       xpos = _scene->sceneRect().x();
-	const int dx   = _scene->sceneRect().width() / layout.size();
-	for( auto& group : layout ) {
+	for( auto& [name, info] : *modules ) {
+		int  z_level          = max_level + 2 - info.level;
+		auto n                = new Node( this, &info, z_level );
+		module_node_map[name] = n;
 
-		// determine parameters for iteration (inital position  and position
-		int ypos = 0;
-		int dy   = 1;
-
-		if( group.size() > 1 ) {
-			ypos = _scene->sceneRect().y();
-			dy   = _scene->sceneRect().height() / ( group.size() - 1 );
-		} else {
-			ypos = _scene->sceneRect().height() / 2;
+		if( info.level >= _nodes.size() ) {
+			_nodes.resize( info.level + 1 );
 		}
-
-		_nodes.push_back( {} );
-		for( auto& module : group ) {
-			int  z_level = static_cast<int>( layout.size() ) + 2 - module->level;
-			auto n       = new Node( this, module, z_level );
-
-			module_node_map[module->name] = n;
-			_nodes.back().push_back( n );
-
-			n->setPos( xpos, ypos );
-			_scene->addItem( n );
-			ypos += dy;
-		}
-
-		xpos += dx;
+		_nodes[info.level].push_back( n );
+		auto pos = layout[name];
+		scene()->addItem( n );
+		n->setPos( pos );
 	}
 
 	std::vector<std::pair<Node*, Node*>> connections;
@@ -218,13 +248,13 @@ void GraphWidget::set_data( const std::vector<std::vector<ModuleInfo*>>& layout 
 	}
 
 	// get the layout into a (mostly) stable state first
-	for( int i = 0; i < 200; ++i ) {
+	for( int i = 0; i < 5000; ++i ) {
 		update_positions();
 	}
 
-	_edges.create_edges( *_scene, connections );
+	_edges.create_edges( *scene(), connections );
 
-	_timer_id = startTimer( 1000 / 20 );
+	_timer_id = startTimer( 1000 / 30 );
 }
 
 void GraphWidget::clear()
@@ -234,7 +264,7 @@ void GraphWidget::clear()
 	_selectedNode = nullptr;
 	_nodes.clear();
 	_edges.clear();
-	_scene->clear();
+	scene()->clear();
 }
 
 } // namespace mdev::bdg::gui

@@ -20,6 +20,6 @@ struct ModuleInfo {
 	friend bool operator<( const ModuleInfo& l, const ModuleInfo& r ) { return l.name < r.name; }
 };
 
-using modules_data = std::map<std::string, ModuleInfo>;
+struct modules_data : public std::map<std::string, ModuleInfo>{};
 
 } // namespace mdev::bdg

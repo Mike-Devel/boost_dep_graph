@@ -8,6 +8,7 @@
 namespace mdev::bdg {
 
 struct ModuleInfo;
+struct modules_data;
 
 namespace gui {
 
@@ -19,7 +20,8 @@ class GraphWidget : public QGraphicsView {
 public:
 	GraphWidget( QWidget* parent = nullptr );
 
-	void set_data( const std::vector<std::vector<ModuleInfo*>>& layout );
+	void set_data( mdev::bdg::modules_data* modules );
+
 
 public slots:
 	void change_selected_node( Node* );
@@ -38,7 +40,6 @@ private:
 	void update_positions();
 
 	std::vector<std::vector<Node*>> _nodes;
-	QGraphicsScene*                 _scene = nullptr;
 	Edges                           _edges;
 
 	int   _timer_id{};
