@@ -107,6 +107,7 @@ void Edge::update_style()
 
 	if( !_dest->info()->has_cmake ) {
 		line_color = Qt::red;
+		this->setZValue( -1 );
 	}
 	_line_pen = QPen( line_color, line_width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
 }
