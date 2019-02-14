@@ -3,8 +3,8 @@
 
 #include "node.hpp"
 
-#include "../ModuleInfo.hpp"
-#include "../utils.hpp"
+#include <core/ModuleInfo.hpp>
+#include <core/utils.hpp>
 
 #include <QKeyEvent>
 #include <QMarginsF>

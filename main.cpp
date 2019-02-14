@@ -3,8 +3,8 @@
 #include <ui/layout.hpp>
 
 
-#include <ModuleInfo.hpp>
-#include <analysis.hpp>
+#include <core/ModuleInfo.hpp>
+#include <core/analysis.hpp>
 
 #include <QApplication>
 #include <QFileDialog>

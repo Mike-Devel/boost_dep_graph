@@ -1,10 +1,9 @@
 #include "edges.hpp"
 
 #include "node.hpp"
-
-#include "../ModuleInfo.hpp"
-
 #include "gui_cfg.hpp"
+
+#include <core/ModuleInfo.hpp>
 
 #include <QGraphicsScene>
 #include <QPainter>

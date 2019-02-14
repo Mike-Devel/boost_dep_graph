@@ -7,7 +7,7 @@
 #include <QPen>
 #include <QPolygon>
 
-#include "../utils.hpp"
+#include <core/utils.hpp>
 
 #include <memory>
 

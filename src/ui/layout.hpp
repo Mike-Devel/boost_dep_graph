@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../ModuleInfo.hpp"
-#include "../utils.hpp"
+#include <core/utils.hpp>
+#include <core/ModuleInfo.hpp>
 
 namespace mdev::bdg::gui {
 

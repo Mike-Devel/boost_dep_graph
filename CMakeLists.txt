@@ -20,7 +20,7 @@ endif()
 
 ########## Compile modules & libraries #######################################
 add_subdirectory(src/ui)
-add_subdirectory(src)
+add_subdirectory(src/core)
 
 
 ######### generate the executable ############################################

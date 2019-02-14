@@ -2,8 +2,8 @@
 #include "graphwidget.hpp"
 #include "gui_cfg.hpp"
 
-#include "../ModuleInfo.hpp"
-#include "../analysis.hpp"
+#include <core/utils.hpp>
+#include <core/analysis.hpp>
 
 
 #include <QColor>
