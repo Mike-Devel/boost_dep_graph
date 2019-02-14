@@ -2,7 +2,6 @@
 #include <ui/graphwidget.hpp>
 #include <ui/layout.hpp>
 
-
 #include <core/ModuleInfo.hpp>
 #include <core/analysis.hpp>
 
@@ -44,10 +43,9 @@ void print_stats( const modules_data& modules )
 
 // This is the list of boost libraries that is ignored in the following process
 
-
 std::ostream& operator<<( std::ostream& stream, const QString& str )
 {
-	stream << str.toStdString(); // or: stream << str.toStdString(); //??
+	stream << str.toStdString();
 	return stream;
 }
 
@@ -56,15 +54,15 @@ std::filesystem::path determine_boost_root()
 
 	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 
-	auto env_boost_root = env.value( "BOOST_ROOT", "" );
+	auto default_folder = env.value( "BOOST_ROOT", "" );
 
-	if( env_boost_root.isEmpty() ) {
+	if( default_folder.isEmpty() ) {
 		std::cout << "No BOOST_ROOT environment variable found" << std::endl;
-		env_boost_root = QStandardPaths::standardLocations( QStandardPaths::HomeLocation ).first();
+		default_folder = QStandardPaths::standardLocations( QStandardPaths::HomeLocation ).first();
 	}
 
 	std::filesystem::path boost_root
-		= QFileDialog::getExistingDirectory( nullptr, "Select boost root directory", env_boost_root ).toStdString();
+		= QFileDialog::getExistingDirectory( nullptr, "Select boost root directory", default_folder ).toStdString();
 
 	if( !std::filesystem::exists( boost_root / "Jamroot" ) ) {
 		std::cerr << "Could not detect Jamroot file in selected folder :" << boost_root << std::endl;
@@ -76,16 +74,17 @@ std::filesystem::path determine_boost_root()
 	return boost_root;
 }
 
+const std::vector<std::string> filter; // Add modules that should be ignored
 
-const std::vector<std::string> filter; // ={mpl, smart_ptr};
 int main( int argc, char** argv )
 {
 	QApplication app( argc, argv );
-	QMainWindow main_window;
+	QMainWindow  main_window;
 
 	auto graph_widget = new gui::GraphWidget();
 	main_window.setCentralWidget( graph_widget );
 
+	// This data is referenced from multiple places in the UI, so it has to stay alive as long as the app is running
 	modules_data modules;
 
 	auto rescan = [&modules, &graph_widget] {
