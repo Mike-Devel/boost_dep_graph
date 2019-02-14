@@ -1,8 +1,7 @@
 
-#include <ui/edge.hpp>
 #include <ui/graphwidget.hpp>
 #include <ui/layout.hpp>
-#include <ui/node.hpp>
+
 
 #include <ModuleInfo.hpp>
 #include <analysis.hpp>
@@ -84,7 +83,7 @@ int main( int argc, char** argv )
 	QApplication app( argc, argv );
 	QMainWindow main_window;
 
-	auto graph_widget = new GraphWidget();
+	auto graph_widget = new gui::GraphWidget();
 	main_window.setCentralWidget( graph_widget );
 
 	modules_data modules;
@@ -95,12 +94,12 @@ int main( int argc, char** argv )
 		modules = generate_module_list( boost_root, filter );
 
 		print_stats( modules );
-		graph_widget->set_data( layout_boost_modules( modules ) );
+		graph_widget->set_data( gui::layout_boost_modules( modules ) );
 	};
 
 	rescan();
 
-	QObject::connect( graph_widget, &GraphWidget::reload_requested, rescan );
+	QObject::connect( graph_widget, &gui::GraphWidget::reload_requested, rescan );
 	main_window.show();
 	return app.exec();
 }

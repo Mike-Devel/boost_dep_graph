@@ -3,13 +3,15 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <vector>
+#include "edges.hpp"
 
 namespace mdev::bdg {
 
 struct ModuleInfo;
 
+namespace gui {
+
 class Node;
-class Edge;
 
 class GraphWidget : public QGraphicsView {
 	Q_OBJECT
@@ -32,14 +34,14 @@ protected:
 	void wheelEvent( QWheelEvent* event ) override;
 
 private:
-	void updatePosition( Node* node, const std::vector<Node*>& other );
+	void update_positions();
 
 	std::vector<std::vector<Node*>> _nodes;
-	std::vector<Edge*>              _edges;
 	QGraphicsScene*                 _scene = nullptr;
+	Edges                           _edges;
 
 	int   _timer_id{};
 	Node* _selectedNode = nullptr;
 };
-
+} // namespace gui
 } // namespace mdev::bdg

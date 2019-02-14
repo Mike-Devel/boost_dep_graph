@@ -3,7 +3,7 @@
 #include "../ModuleInfo.hpp"
 #include "../utils.hpp"
 
-namespace mdev::bdg {
+namespace mdev::bdg::gui {
 
 using ModuleLayout = std::vector<std::vector<ModuleInfo*>>;
 

@@ -1,9 +1,10 @@
 #include "node.hpp"
-#include "edge.hpp"
 #include "graphwidget.hpp"
+#include "gui_cfg.hpp"
 
 #include "../ModuleInfo.hpp"
 #include "../analysis.hpp"
+
 
 #include <QColor>
 #include <QGraphicsScene>
@@ -11,8 +12,7 @@
 #include <QPainter>
 #include <QStyleOption>
 
-
-namespace mdev::bdg {
+namespace mdev::bdg::gui {
 
 Node::Node( GraphWidget* graphWidget, ModuleInfo* module, int z_level )
 	: _graph( graphWidget )
@@ -25,26 +25,16 @@ Node::Node( GraphWidget* graphWidget, ModuleInfo* module, int z_level )
 	setZValue( z_level );
 }
 
-void Node::addEdge( Edge* edge )
+void Node::addNode( const Node* node )
 {
-	_edgeList.push_back( edge );
-	edge->adjust();
+	_node_list.push_back( node );
 }
 
-std::vector<Edge*> Node::edges() const
+mdev::span<const Node* const> Node::nodes() const
 {
-	return _edgeList;
+	return {_node_list};
 }
 
-namespace {
-
-template<typename T>
-int sign( T val )
-{
-	return ( T( 0 ) < val ) - ( val < T( 0 ) );
-}
-
-} // namespace
 
 QRectF Node::boundingRect() const
 {
@@ -55,7 +45,7 @@ QRectF Node::boundingRect() const
 QPainterPath Node::shape() const
 {
 	QPainterPath path;
-	path.addEllipse( -10, -10, 20, 20 );
+	path.addEllipse( -cfg::node_radius, -cfg::node_radius, cfg::node_radius * 2, cfg::node_radius*2 );
 	return path;
 }
 
@@ -89,7 +79,7 @@ void Node::paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWi
 	painter->drawEllipse( -10, -10, 20, 20 );
 	painter->setFont( QFont( "Helvetica", 15 ) );
 	painter->setPen( QPen( Qt::black, 3 ) );
-	painter->drawText( QPoint{-10, -10}, _name );
+	painter->drawText( QPoint {-10, -10}, _name );
 }
 
 void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )
@@ -114,4 +104,4 @@ void Node::mouseReleaseEvent( QGraphicsSceneMouseEvent* event )
 	update();
 }
 
-} // namespace mdev::bdg
+} // namespace mdev::bdg::gui
