@@ -15,7 +15,7 @@ target_include_directories(boost_dep_graph_tests PRIVATE libs)
 target_link_libraries(
 	boost_dep_graph_tests
 PRIVATE
-	MDev::boost_dep_graph_lib
+	MDev::bdg_core
 )
 
 
