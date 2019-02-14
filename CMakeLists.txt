@@ -17,6 +17,10 @@ else()
 	add_compile_options(-Wall -Wextra)
 endif()
 
+########## Dependencies #######################################
+find_package(Threads REQUIRED)
+find_package(Qt5Widgets CONFIG REQUIRED)
+find_package(Qt5Core CONFIG REQUIRED)
 
 ########## Compile modules & libraries #######################################
 add_subdirectory(src/ui)
