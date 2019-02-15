@@ -58,17 +58,21 @@ inline ModuleLayout layout_boost_modules( modules_data& modules, const QRectF ar
 			ypos += dy;
 		}
 
-		auto& first = ret[group.front()->name];
-		auto& last  = ret[group.back()->name];
+		if( group.size() != 0 ) {
 
-		if( group.front()->rev_deps.size() > 0 ) {
-			first.setY( first.y() + 10 );
+
+			auto& first = ret[group.front()->name];
+			auto& last  = ret[group.back()->name];
+
+			if( group.front()->rev_deps.size() > 0 ) {
+				first.setY( first.y() + 10 );
+			}
+
+			if( group.back()->rev_deps.size() > 0 ) {
+				last.setY( last.y() - 10 );
+			}
+
 		}
-
-		if( group.back()->rev_deps.size() > 0 ) {
-			last.setY( last.y() - 10 );
-		}
-
 		xpos += dx;
 		lvl++;
 	}
