@@ -2,4 +2,5 @@
 .project
 .vs
 /build
+__*__
 
