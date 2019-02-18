@@ -10,6 +10,13 @@
 
 namespace mdev::bdg {
 
+modules_data generate_file_list( std::filesystem::path           boost_root,
+									std::string                     root_module,
+									const std::vector<std::string>& exclude = {} );
+
+modules_data generate_module_list( std::filesystem::path           boost_root,
+								   std::string                     root_module,
+								   const std::vector<std::string>& exclude = {} );
 modules_data generate_module_list( std::filesystem::path boost_root, const std::vector<std::string>& exclude = {} );
 
 void set_direct_deps( modules_data& modules, std::map<std::string, std::set<std::string>> deps );

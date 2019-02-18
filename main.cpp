@@ -80,26 +80,39 @@ const std::vector<std::string> filter; // Add modules that should be ignored
 int main( int argc, char** argv )
 {
 	QApplication app( argc, argv );
-	QMainWindow  main_window;
+	QMainWindow main_window;
+	//QMainWindow main_window2;
 
 	auto graph_widget = new gui::GraphWidget();
+	//auto graph_widget2 = new gui::GraphWidget();
+
 	main_window.setCentralWidget( graph_widget );
+	//main_window2.setCentralWidget( graph_widget2 );
 
 	// This data is referenced from multiple places in the UI, so it has to stay alive as long as the app is running
 	modules_data modules;
+	//modules_data modules2;
 
 	auto rescan = [&modules, &graph_widget] {
+	//auto rescan = [&modules, &modules2, &graph_widget, &graph_widget2] {
 		auto boost_root = determine_boost_root();
 
-		modules = generate_module_list( boost_root, filter );
+		modules = generate_module_list( boost_root,  filter );
+		//modules = generate_module_list( boost_root, "serialization", filter );
+		//modules = generate_file_list( boost_root, "serialization", filter );
 
-		print_stats( modules );
+		//print_stats( modules );
 		graph_widget->set_data( &modules );
+		//graph_widget2->set_data( &modules2 );
 	};
 
 	rescan();
 
 	QObject::connect( graph_widget, &gui::GraphWidget::reload_requested, rescan );
 	main_window.show();
+
+	//QObject::connect( graph_widget2, &gui::GraphWidget::reload_requested, rescan );
+	//main_window2.show();
+
 	return app.exec();
 }

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <filesystem>
 
 namespace {
@@ -27,28 +28,24 @@ std::string replace( const std::string& src, char match, char replacement )
 	return ret;
 }
 
-} // namespace
-
-namespace mdev::bdg {
-
-modules_data generate_module_list( std::filesystem::path boost_root, const std::vector<std::string>& exclude )
+mdev::bdg::modules_data process_dpendency_map( const std::map<std::string, std::set<std::string>>& dependency_map,
+											   std::filesystem::path                               boost_root,
+											   const std::vector<std::string>&                     exclude )
 {
-
-	auto dependency_map = boostdep::build_module_dependency_map( boost_root, true, false );
 
 	std::vector<std::string> module_names;
 	for( auto [name, ignore] : dependency_map ) {
 		module_names.push_back( name );
 	}
 
-	modules_data             data;
+	mdev::bdg::modules_data data;
 	for( auto& name : filter( module_names, exclude ) ) {
 
 		std::string relative_path_to_root = replace( name, '~', '/' );
 
 		bool has_cmake = std::filesystem::exists( boost_root / "libs" / relative_path_to_root / "CMakeLists.txt" );
 
-		data[name] = ModuleInfo{name, -1, has_cmake, {}};
+		data[name] = mdev::bdg::ModuleInfo {name, -1, has_cmake, false};
 	}
 
 	set_direct_deps( data, dependency_map );
@@ -56,6 +53,48 @@ modules_data generate_module_list( std::filesystem::path boost_root, const std::
 	update_derived_information( data );
 
 	return data;
+}
+
+} // namespace
+
+namespace mdev::bdg {
+
+modules_data
+generate_module_list( std::filesystem::path boost_root, std::string root, const std::vector<std::string>& exclude )
+{
+	auto dependency_map = boostdep::build_filtered_module_dependency_map(
+		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+
+	return process_dpendency_map( dependency_map, boost_root, exclude );
+
+}
+
+modules_data generate_module_list( std::filesystem::path boost_root, const std::vector<std::string>& exclude )
+{
+
+	auto dependency_map
+		= boostdep::build_module_dependency_map( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+
+	return process_dpendency_map( dependency_map, boost_root, exclude );
+}
+
+modules_data
+generate_file_list( std::filesystem::path boost_root, std::string root, const std::vector<std::string>& exclude )
+{
+	auto dependency_map = boostdep::build_filtered_file_dependency_map(
+		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+
+	std::map<std::string, std::set<std::string>> dependency_map2;
+
+
+	for( auto&& file : dependency_map ) {
+		auto& e = dependency_map2[file.first];
+		for( auto&& dep : file.second ) {
+			e.insert( dep );
+		}
+	}
+
+	return process_dpendency_map( dependency_map2, boost_root, exclude );
 }
 
 void set_direct_deps( modules_data& modules, std::map<std::string, std::set<std::string>> deps )
@@ -105,8 +144,8 @@ void update_module_levels( modules_data& modules )
 		m.second.level = -1;
 	}
 
-	bool updated = true;
-	int  cnt     = 0;
+	bool        updated = true;
+	std::size_t cnt     = 0;
 	while( updated && cnt++ < modules.size() + 1 ) {
 		updated = false;
 		for( auto& [module, info] : modules ) {
@@ -118,7 +157,6 @@ void update_module_levels( modules_data& modules )
 					max_dep_level = std::max( max_dep_level, d->level );
 				}
 			}
-
 			const int new_level = max_dep_level + 1;
 
 			if( info.level != new_level ) {

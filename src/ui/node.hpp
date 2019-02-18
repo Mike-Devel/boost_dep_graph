@@ -25,7 +25,7 @@ public:
 	QPainterPath shape() const override;
 	void         paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget ) override;
 
-	void                          addNode( const Node* );
+	void                          add_attracting_node( const Node* );
 	mdev::span<const Node* const> nodes() const;
 
 	void select() noexcept { _is_selected = true; }

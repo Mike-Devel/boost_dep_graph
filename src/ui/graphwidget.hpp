@@ -26,6 +26,7 @@ public:
 public slots:
 	void change_selected_node( Node* );
 	void clear();
+	void update_all();
 
 signals:
 	void reload_requested();

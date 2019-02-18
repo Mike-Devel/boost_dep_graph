@@ -15,9 +15,9 @@
 namespace mdev::bdg::gui {
 
 Node::Node( GraphWidget* graphWidget, ModuleInfo* module, int z_level )
-	: _graph( graphWidget )
+	: _name( QString::fromStdString( module->name ) )
+	, _graph( graphWidget )
 	, _moduleInfo( module )
-	, _name( QString::fromStdString( module->name ) )
 {
 	setFlag( ItemIsMovable );
 	setFlag( ItemSendsGeometryChanges );
@@ -28,7 +28,7 @@ Node::Node( GraphWidget* graphWidget, ModuleInfo* module, int z_level )
 	_text_size             = fm.size(0, _name );
 }
 
-void Node::addNode( const Node* node )
+void Node::add_attracting_node( const Node* node )
 {
 	_node_list.push_back( node );
 }
@@ -81,18 +81,13 @@ void Node::paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWi
 	}
 	painter->setBrush( gradient );
 
-
 	painter->setPen( QPen( Qt::black, 0 ) );
 	painter->drawEllipse( -cfg::node_radius, -cfg::node_radius, cfg::node_radius * 2, cfg::node_radius*2 );
 
-	//double scaleValue = scale() / painter->transform().m11();
-	//painter->save();
-	//painter->scale( scaleValue, scaleValue );
 	painter->setFont( cfg::module_name_font );
 	painter->setPen( QPen( Qt::black, 3 ) );
 	painter->drawText( QPointF{-cfg::node_radius, -cfg::node_radius}, _name );
 
-	//painter->restore();
 }
 
 void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )
@@ -104,6 +99,7 @@ void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )
 		for( auto info : _moduleInfo->all_rev_deps ) {
 			update_cmake_status( *info );
 		}
+		_graph->update_all();
 	} else {
 		QGraphicsItem::mousePressEvent( event );
 		_graph->change_selected_node( this );

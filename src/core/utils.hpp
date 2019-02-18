@@ -22,6 +22,13 @@ std::vector<T> merge( std::vector<T> l, const std::vector<T>& r )
 	return l;
 }
 
+template<class T>
+void merge_into( std::vector<T>&& src, std::vector<T>& dest )
+{
+	dest.insert( dest.end(), std::make_move_iterator( src.begin() ), std::make_move_iterator(src.end()) );
+	src.clear();
+}
+
 
 template<typename T>
 int sign( T val )

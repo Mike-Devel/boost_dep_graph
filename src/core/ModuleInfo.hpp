@@ -8,6 +8,7 @@
 namespace mdev::bdg {
 
 struct ModuleInfo {
+
 	std::string           name;
 	int                   level;
 	bool                  has_cmake;
@@ -20,6 +21,7 @@ struct ModuleInfo {
 	friend bool operator<( const ModuleInfo& l, const ModuleInfo& r ) { return l.name < r.name; }
 };
 
-struct modules_data : public std::map<std::string, ModuleInfo>{};
+struct modules_data : public std::map<std::string, ModuleInfo> {
+};
 
 } // namespace mdev::bdg

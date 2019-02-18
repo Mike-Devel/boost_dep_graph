@@ -48,10 +48,10 @@ void update_position( Node*                     node,
 		// we also take the distance in x direction into account as it is relevant when reordering nodes by hand
 		const auto abs_dist = std::sqrt( vec.y() * vec.y() + vec.x() * vec.x() );
 
-		yvel += dir * rep_force * normalization      //
-				/ (                                  //
-					  abs_dist * abs_dist * abs_dist //
-					  + normalization );
+		yvel += dir * rep_force * normalization    //
+				/ (                                //
+					abs_dist * abs_dist * abs_dist //
+					+ normalization );
 	}
 
 	for( Node* other_node : next_level_nodes ) {
@@ -66,10 +66,10 @@ void update_position( Node*                     node,
 		constexpr auto normalization2
 			= cfg::min_node_dist * cfg::min_node_dist * cfg::min_node_dist * cfg::min_node_dist;
 
-		yvel += dir * rep_force * normalization2      //
-				/ (                                  //
-					  abs_dist * abs_dist * abs_dist * abs_dist //
-					  + normalization2 );
+		yvel += dir * rep_force * normalization2              //
+				/ (                                           //
+					abs_dist * abs_dist * abs_dist * abs_dist //
+					+ normalization2 );
 	}
 
 	// Node gets attracted from dependees
@@ -99,7 +99,7 @@ GraphWidget::GraphWidget( QWidget* parent )
 {
 	auto sc = new QGraphicsScene( this );
 	sc->setItemIndexMethod( QGraphicsScene::NoIndex );
-	sc->setSceneRect( QRectF( QPointF{}, cfg::scene_size ) );
+	sc->setSceneRect( QRectF( QPointF {}, cfg::scene_size ) );
 	setScene( sc );
 
 	QSurfaceFormat fmt;
@@ -129,6 +129,16 @@ void GraphWidget::change_selected_node( Node* node )
 	_edges.update_style();
 }
 
+void GraphWidget::update_all()
+{
+	for( auto& grp : _nodes ) {
+		for( auto& node : grp ) {
+			node->update();
+		}
+	}
+	_edges.update_all();
+}
+
 void GraphWidget::keyPressEvent( QKeyEvent* event )
 {
 	switch( event->key() ) {
@@ -145,19 +155,19 @@ void GraphWidget::resizeEvent( QResizeEvent* event )
 
 	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
 
-	//auto ratio = 1.0 * event->size().width() / event->size().height();
-	//auto rect    = scene()->sceneRect();
-	//auto new_width = rect.height() * ratio;
-	//auto x_scale   = new_width / rect.width();
+	// auto ratio = 1.0 * event->size().width() / event->size().height();
+	// auto rect    = scene()->sceneRect();
+	// auto new_width = rect.height() * ratio;
+	// auto x_scale   = new_width / rect.width();
 
-	//rect.setWidth( rect.height() *ratio );
+	// rect.setWidth( rect.height() *ratio );
 
-	//for( auto& i : scene()->items() ) {
+	// for( auto& i : scene()->items() ) {
 	//	i->setX( i->x() * x_scale );
 	//}
 
-	//scene()->setSceneRect( rect );
-	//update_positions();
+	// scene()->setSceneRect( rect );
+	// update_positions();
 	event->accept();
 
 	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
@@ -176,7 +186,7 @@ void GraphWidget::update_positions()
 			if( level > 0 ) {
 				update_position( node, group, _nodes[level - 1], area );
 			} else {
-				update_position( node, group, std::vector<Node*>{}, area );
+				update_position( node, group, std::vector<Node*> {}, area );
 			}
 		}
 	}
@@ -213,10 +223,9 @@ void GraphWidget::set_data( modules_data* modules )
 {
 	clear();
 
-	auto max_level = std::max_element( modules->begin(),
-									   modules->end(),
-									   []( auto& l, auto& r ) { return l.second.level < r.second.level; } )
-						 ->second.level;
+	auto max_level = std::max_element( modules->begin(), modules->end(), []( auto& l, auto& r ) {
+						 return l.second.level < r.second.level;
+					 } )->second.level;
 
 	auto layout = gui::layout_boost_modules( *modules, this->sceneRect().marginsRemoved( cfg::margins ) );
 
@@ -242,7 +251,9 @@ void GraphWidget::set_data( modules_data* modules )
 		Node* src = module_node_map.at( module );
 		for( auto* d : node->info()->deps ) {
 			Node* dest = module_node_map.at( d->name );
-			dest->addNode( src );
+			if( dest->info()->level != src->info()->level ) {
+				dest->add_attracting_node( src );
+			}
 			connections.emplace_back( src, dest );
 		}
 	}

@@ -25,9 +25,6 @@ PRIVATE
 
 ADD_TEST(NAME build_boost_dep_graph_tests COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target boost_dep_graph_tests)
 
-set(PARSE_CATCH_TESTS_ADD_TO_CONFIGURE_DEPENDS ON)
-set(PARSE_CATCH_TESTS_ADD_TARGET_IN_TEST_NAME OFF)
-
 include(libs/catch2/ParseAndAddCatchTests.cmake)
 
 ParseAndAddCatchTests(boost_dep_graph_tests)

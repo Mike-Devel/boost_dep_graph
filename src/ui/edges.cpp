@@ -8,6 +8,8 @@
 #include <QGraphicsScene>
 #include <QPainter>
 
+#include <cmath>
+
 namespace mdev::bdg::gui {
 
 namespace {
@@ -150,6 +152,15 @@ void Edges::update_style()
 {
 	for( auto& e : _edge_list ) {
 		e.update_style();
+	}
+}
+
+void Edges::update_all()
+{
+	update_style();
+	update_positions();
+	for( auto& e : _edge_list ) {
+		e.update();
 	}
 }
 

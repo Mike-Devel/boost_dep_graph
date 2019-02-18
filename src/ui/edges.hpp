@@ -56,6 +56,7 @@ public:
 	void clear();
 	void update_positions();
 	void update_style();
+	void update_all();
 };
 
 } // namespace mdev::bdg::gui

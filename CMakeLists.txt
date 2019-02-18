@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
-project(boost_dep_graph  LANGUAGES CXX)
+
+project(boost_dep_graph LANGUAGES CXX)
+
+option(boost_dep_graph_INCLUDE_TESTS "Generate targets in test directory" ON)
 
 ########## General Settings for the whole project ############################
 set(CMAKE_CXX_STANDARD 17)
@@ -15,6 +18,7 @@ if (MSVC)
 	)
 else()
 	add_compile_options(-Wall -Wextra)
+	link_libraries( -lc++fs )
 endif()
 
 ########## Dependencies #######################################
@@ -39,7 +43,6 @@ target_link_libraries( boost_dep_graph
 )
 
 ########## Testing ###########################################################
-option(boost_dep_graph_INCLUDE_TESTS "Generate targets in test directory" ON)
 
 if(boost_dep_graph_INCLUDE_TESTS)
 	enable_testing()
