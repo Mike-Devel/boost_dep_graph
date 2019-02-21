@@ -1,4 +1,4 @@
-# boost_dep_graph
+# BoostDepGraph
 A tool to visualize the boost dpendency graph.
 
 # Basic Usage
@@ -35,4 +35,4 @@ A tool to visualize the boost dpendency graph.
 - The code extracting the dependency information from the boost repository is loosely based on `boostdep` from Peter Dimov (https://github.com/boostorg/boostdep).
 - The visualization code was initially based on the `Elastic Nodes Example` on the qt homepage (https://doc.qt.io/qt-5/qtwidgets-graphicsview-elasticnodes-example.html)
 
-However, both of those parts have been completely rewritten ny now.
+However, both of those parts have been completely rewritten by now.

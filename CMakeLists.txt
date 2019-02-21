@@ -18,7 +18,6 @@ if (MSVC)
 	)
 else()
 	add_compile_options(-Wall -Wextra)
-	link_libraries( -lc++fs )
 endif()
 
 ########## Dependencies #######################################
