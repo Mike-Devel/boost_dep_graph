@@ -142,10 +142,24 @@ void GraphWidget::update_all()
 void GraphWidget::keyPressEvent( QKeyEvent* event )
 {
 	switch( event->key() ) {
-		case Qt::Key_Space:
+		case Qt::Key_Space: {
+
 			clear();
 			emit( reload_requested() );
 			break;
+		}
+		case Qt::Key_P: {
+
+			QPainter pngPainter;
+			QImage    image( QSize( width(), height() ), QImage::Format_ARGB32_Premultiplied ); // Format_RGB888 ); //  );
+			image.fill(Qt::white);
+			pngPainter.begin( &image );
+			pngPainter.setRenderHint( QPainter::Antialiasing );
+			scene()->render( &pngPainter );
+			pngPainter.end();
+			image.save( "Boostdep.png", "PNG", 50 );
+			break;
+		}
 		default: QGraphicsView::keyPressEvent( event );
 	}
 }

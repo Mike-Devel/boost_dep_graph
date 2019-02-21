@@ -1,6 +1,8 @@
 # BoostDepGraph
 A tool to visualize the boost dpendency graph.
 
+![Dependency graph as of 21-02-2019](Boostdep-small.png)
+
 # Basic Usage
 - First, you need a recursive copy of the boost project https://github.com/boostorg/boost
   (i.e. the `libs` sub-folder contains a copy of all boost libraries)
