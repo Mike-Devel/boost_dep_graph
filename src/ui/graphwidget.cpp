@@ -33,7 +33,7 @@ void update_position( Node*                     node,
 	constexpr double rep_force     = 300; // weight of repellent forces
 	constexpr auto   normalization = cfg::min_node_dist * cfg::min_node_dist * cfg::min_node_dist;
 
-	const auto current_pos = node->pos();
+	const auto current_pos = node->get_pos();
 
 	qreal yvel = 0;
 	for( Node* other_node : same_level_nodes ) {
@@ -41,7 +41,7 @@ void update_position( Node*                     node,
 			continue;
 		}
 
-		const QPointF vec = other_node->pos() - current_pos;
+		const QPointF vec = other_node->get_pos() - current_pos;
 
 		const auto dir = -sign( vec.y() );
 
@@ -56,7 +56,7 @@ void update_position( Node*                     node,
 
 	for( Node* other_node : next_level_nodes ) {
 
-		const QPointF vec = other_node->pos() - current_pos;
+		const QPointF vec = other_node->get_pos() - current_pos;
 
 		const auto dir = -sign( vec.y() );
 
@@ -77,7 +77,7 @@ void update_position( Node*                     node,
 	const auto       deps       = node->nodes();
 
 	for( const Node* other_node : deps ) {
-		QPointF vec = other_node->pos() - current_pos;
+		QPointF vec = other_node->get_pos() - current_pos;
 		yvel += vec.y() * attr_force;
 	}
 
@@ -88,7 +88,7 @@ void update_position( Node*                     node,
 	newPos.setX( std::clamp( newPos.x(), scene_rect.left(), scene_rect.right() ) );
 	newPos.setY( std::clamp( newPos.y(), scene_rect.top(), scene_rect.bottom() ) );
 
-	node->setPos( newPos );
+	node->set_pos( newPos );
 }
 
 } // namespace
@@ -152,25 +152,8 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 
 void GraphWidget::resizeEvent( QResizeEvent* event )
 {
-
 	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
-
-	// auto ratio = 1.0 * event->size().width() / event->size().height();
-	// auto rect    = scene()->sceneRect();
-	// auto new_width = rect.height() * ratio;
-	// auto x_scale   = new_width / rect.width();
-
-	// rect.setWidth( rect.height() *ratio );
-
-	// for( auto& i : scene()->items() ) {
-	//	i->setX( i->x() * x_scale );
-	//}
-
-	// scene()->setSceneRect( rect );
-	// update_positions();
 	event->accept();
-
-	fitInView( scene()->sceneRect(), Qt::KeepAspectRatio );
 }
 
 void GraphWidget::update_positions()
@@ -242,7 +225,7 @@ void GraphWidget::set_data( modules_data* modules )
 		_nodes[info.level].push_back( n );
 		auto pos = layout[name];
 		scene()->addItem( n );
-		n->setPos( pos );
+		n->set_pos( pos );
 	}
 
 	std::vector<std::pair<Node*, Node*>> connections;

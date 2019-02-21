@@ -110,7 +110,26 @@ void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )
 void Node::mouseReleaseEvent( QGraphicsSceneMouseEvent* event )
 {
 	QGraphicsItem::mouseReleaseEvent( event );
+	_pos = QGraphicsItem::pos();
 	update();
+}
+
+void Node::set_pos( QPointF new_pos ){
+
+	_pos = new_pos;
+	if( ( _pos - QGraphicsItem::pos() ).manhattanLength() > 1.0 ) {
+		// update the position of the graphics item
+		QGraphicsItem::setPos( _pos );
+	}
+
+}
+
+QVariant Node::itemChange( QGraphicsItem::GraphicsItemChange change, const QVariant& value )
+{
+	if( change == ItemPositionChange ) {
+		_pos = value.toPointF();
+	}
+	return QGraphicsItem::itemChange( change, value );
 }
 
 } // namespace mdev::bdg::gui

@@ -159,9 +159,6 @@ void Edges::update_all()
 {
 	update_style();
 	update_positions();
-	for( auto& e : _edge_list ) {
-		e.update();
-	}
 }
 
 void Edges::create_edges( QGraphicsScene& scene, mdev::span<const std::pair<Node*, Node*>> connections )
@@ -177,8 +174,7 @@ void Edges::create_edges( QGraphicsScene& scene, mdev::span<const std::pair<Node
 	for( detail::Edge& e : _edge_list ) {
 		scene.addItem( &e );
 	}
-	update_style();
-	update_positions();
+	update_all();
 }
 
 } // namespace mdev::bdg::gui
