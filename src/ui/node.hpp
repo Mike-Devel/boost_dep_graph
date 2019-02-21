@@ -1,7 +1,7 @@
 #pragma once
 
-#include <QSize>
 #include <QGraphicsItem>
+#include <QSize>
 #include <QString>
 #include <vector>
 

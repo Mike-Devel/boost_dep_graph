@@ -85,9 +85,8 @@ void Node::paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWi
 	painter->drawEllipse( -cfg::node_radius, -cfg::node_radius, cfg::node_radius * 2, cfg::node_radius*2 );
 
 	painter->setFont( cfg::module_name_font );
-	painter->setPen( QPen( Qt::black, 3 ) );
-	painter->drawText( QPointF{-cfg::node_radius, -cfg::node_radius}, _name );
-
+	painter->setPen( QPen( Qt::black, 5 ) );
+	painter->drawText( QPointF{-cfg::node_radius, -cfg::node_radius*1.5}, _name );
 }
 
 void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )
