@@ -1,5 +1,5 @@
 # BoostDepGraph
-A tool to visualize the boost dpendency graph.
+A tool to visualize the boost dependency graph.
 
 ![Dependency graph as of 21-02-2019](Boostdep-small.png)
 
@@ -11,7 +11,7 @@ A tool to visualize the boost dpendency graph.
 
 - After starting the program, you'll be asked for the boost root directory you want to analyze
 - After analysis is finshed (which takes a couple of seconds on my system) it will show you
-  the depednecny graph between the boost libraries:
+  the dependency graph between the boost libraries:
   - A library `BoostA` depends on library `BoostB`, if any of the header or source files of `BoostA` (not the test files) includes any of the headers of librar `BoostB`
   - The analysis does not consider any form of conditional inclusion, so if e.g. Boost.Array
     is only included when compiled in pre-c++11 mode, it will still show a dependency
@@ -22,7 +22,7 @@ A tool to visualize the boost dpendency graph.
 - Controls:
   - Left clicking on a node will select it and highlight all connected edges
   - Right clkicking on a node will toggle its cmake status and update the rest of the graph accordingly
-  - You can move nodes around via dragand drop
+  - You can move nodes around via drag and drop
   - You can zoom in and out via mouse wheel
   - You can scan a new directory by hitting space
 
