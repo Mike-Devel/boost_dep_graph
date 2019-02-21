@@ -1,18 +1,28 @@
 #include "boostdep.hpp"
 
+#include "utils.hpp"
+
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <climits>
-#include <filesystem>
 #include <fstream>
-#include <iostream>
-#include <map>
-#include <set>
-#include <string>
 #include <vector>
 
-#include "utils.hpp"
+// clang-format off
+#ifndef BDG_DONT_USE_STD_PARALLEL
+	#ifdef __cpp_lib_parallel_algorithm
+		#define BDG_DONT_USE_STD_PARALLEL 0
+	#else
+		#define BDG_DONT_USE_STD_PARALLEL 1
+	#endif
+#endif // !BDG_DONT_USE_STD_PARALLE
+
+#if !BDG_DONT_USE_STD_PARALLEL
+	#include <execution>
+	#include <mutex>
+#endif //
+
+// clang-format on
 
 namespace fs = std::filesystem;
 
@@ -229,13 +239,31 @@ scan_module_files( const fs::path& module_root, TrackSources track_sources, Trac
 
 template<TrackOrigin track_origin>
 std::map<std::string, ScanResult<track_origin>>
-scan_all_boost_modules( const fs::path& boost_root, TrackSources track_sources, TrackTests track_tests )
+scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sources, const TrackTests track_tests )
 {
+	const auto                                      modules = find_modules( boost_root / "libs" );
+	std::map<std::string, ScanResult<track_origin>> module_infos;
+#if BDG_DONT_USE_STD_PARALLEL
 	std::map<std::string, ScanResult<track_origin>> modules;
 	for( auto&& [name, path] : find_modules( boost_root / "libs" ) ) {
-		modules[name] = scan_module_files<track_origin>( path, track_sources, track_tests );
+		module_infos[name] = scan_module_files<track_origin>( path, track_sources, track_tests );
 	}
-	return modules;
+#else
+	// NOTE: In principle this is a classic map_reduce problem,
+	// but my atempt in using std::transform_reduce ended in slower and more complicated code
+	std::mutex mx;
+	std::for_each(           //
+		std::execution::par, //
+		modules.begin(),     //
+		modules.end(),       //
+		[&]( const auto& m ) {
+			auto            ret = scan_module_files<track_origin>( m.second, track_sources, track_tests );
+			std::lock_guard lg( mx );
+			module_infos[m.first] = ret;
+		} //
+	);
+#endif
+	return module_infos;
 }
 
 std::map<std::string, std::string> make_header_map( const std::map<std::string, AggregatedModuleInfo>& modules )
