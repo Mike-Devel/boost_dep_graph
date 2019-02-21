@@ -115,13 +115,14 @@ std::string_view strip_quotes( std::string_view str )
 std::string_view get_included_file_from_line( std::string_view str )
 {
 	// line=   #  include <boost/foo/bar/baz.h>
-	str = trim_left( str );              // str=#  include <boost/foo/bar/baz.h>
-	str = trim_prefix( str, "#" );       // str=  include <boost/foo/bar/baz.h>
-	str = trim_left( str );              // str=include <boost/foo/bar/baz.h>
-	str = trim_prefix( str, "include" ); // str= <boost/foo/bar/baz.h>
-	str = trim_left( str );              // str=<boost/foo/bar/baz.h>
+	str = trim_left( str );        // str=#  include <boost/foo/bar/baz.hpp>
+	str = trim_prefix( str, "#" ); // str=  include <boost/foo/bar/baz.hpp>
+	if( str.size() == 0 ) return {};
+	str = trim_left( str );              // str=include <boost/foo/bar/baz.hpp>
+	str = trim_prefix( str, "include" ); // str= <boost/foo/bar/baz.hpp>
+	str = trim_left( str );              // str=<boost/foo/bar/baz.hpp>
 
-	if( str.size() < 12 ) return {}; // this can't be a boost header if only 10 chars remain
+	if( str.size() < 13 ) return {}; // this can't be a boost header if only 13 chars remain <boost/a.hpp>
 
 	return strip_quotes( str ); // str=boost/foo/bar/baz.h
 }
@@ -130,6 +131,12 @@ std::vector<std::string> get_included_boost_headers( fs::path const& file )
 {
 	std::vector<std::string> headers;
 	std::ifstream            is( file );
+
+	// Note: std::getline is the major performance bottleneck during scanning
+	//
+	// using fopen + fgets + fixed buffer, seems to reduce scan time by ~10-20%
+	// on my windows machine (2.7s vs 3s)
+	// I prefer the simpler c++ code for now
 	for( std::string line; std::getline( is, line ); ) {
 		if( line.size() < 20 ) {
 			continue; // this can't be an include of a boost library
@@ -294,12 +301,6 @@ std::map<std::string, std::string> make_file_map( const std::map<std::string, Mo
 	return file_map;
 }
 
-// template<class T>
-// std::set<T> to_set( std::vector<T>&& in )
-//{
-//	return {std::make_move_iterator( in.begin() ), std::make_move_iterator( in.end() )};
-//}
-
 auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>& modules, std::string root_module )
 	-> std::map<std::string, std::vector<std::string>>
 {
@@ -350,23 +351,11 @@ auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>
 
 	return filtered_file_map;
 }
-
-std::string to_module( const std::map<std::string, std::string>& map, const std::string& file )
-{
-	auto it = map.find( file );
-	if( it != map.end() ) {
-		return it->second;
-	} else {
-		return file;
-	}
-}
-
 } // namespace
 
 auto build_module_dependency_map( const fs::path& boost_root, TrackSources track_sources, TrackTests track_tests )
 	-> std::map<std::string, std::set<std::string>>
 {
-
 	const std::map<std::string, AggregatedModuleInfo> modules
 		= scan_all_boost_modules<TrackOrigin::No>( boost_root, track_sources, track_tests );
 
@@ -416,6 +405,18 @@ auto build_filtered_file_dependency_map( const std::filesystem::path& boost_root
 
 	return map;
 }
+
+namespace {
+std::string to_module( const std::map<std::string, std::string>& map, const std::string& file )
+{
+	auto it = map.find( file );
+	if( it != map.end() ) {
+		return it->second;
+	} else {
+		return file;
+	}
+}
+} // namespace
 
 auto build_filtered_module_dependency_map( const fs::path& boost_root,
 										   std::string     root_module,
