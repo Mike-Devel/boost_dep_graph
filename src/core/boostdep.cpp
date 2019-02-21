@@ -48,13 +48,15 @@ auto find_modules( fs::path const& path, const std::string& prefix = "" ) -> std
 
 auto discover_headers( fs::path const& root_dir ) -> std::vector<std::string>
 {
-	std::vector<std::string> headers;
+	auto prefix_size = root_dir.generic_string().size();
 
+	std::vector<std::string> headers;
 	for( auto&& entry : fs::recursive_directory_iterator( root_dir ) ) {
 		if( !entry.is_directory() ) {
 			auto extension = entry.path().extension();
 			if( extension == ".hpp" || extension == ".h" ) {
-				headers.push_back( fs::relative( entry.path(), root_dir ).generic_string() );
+				// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
+				headers.push_back( entry.path().generic_string().substr( prefix_size + 1 ) );
 			}
 		}
 	}
@@ -160,9 +162,12 @@ std::vector<IncludeInfo> scan_directory_for_boost_includes2( fs::path const& dir
 	if( !fs::exists( dir ) ) {
 		return included_headers;
 	}
+
+	const auto prefix_size = dir.generic_string().size();
 	for( auto& entry : fs::recursive_directory_iterator( dir ) ) {
 		if( entry.is_regular_file() ) {
-			auto file_name = fs::relative( entry.path(), dir ).generic_string();
+			// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
+			auto file_name = entry.path().generic_string().substr( prefix_size + 1 );
 			auto includes  = get_included_boost_headers( entry.path() );
 
 			included_headers.emplace_back( IncludeInfo {std::move( file_name ), std::move( includes )} );
@@ -203,13 +208,12 @@ scan_module_files( const fs::path& module_root, TrackSources track_sources, Trac
 		}
 
 	} else {
-		ret.headers = discover_headers( module_root / "include" );
-		// TODO c++17: ret.includes.merge( scan_directory_for_boost_includes( module_root / "include" ) );
-		// Note: VS2017 is currently missing the std::set::merge( source&& ) overload that would accept a temporary
-		auto i1 = scan_directory_for_boost_includes( module_root / "include" );
-		ret.includes.merge( i1 );
+		ret.headers  = discover_headers( module_root / "include" );
+		ret.includes = scan_directory_for_boost_includes( module_root / "include" );
 
 		if( track_sources == TrackSources::Yes ) {
+			// TODO c++17: ret.includes.merge( scan_directory_for_boost_includes( module_root / "include" ) );
+			// Note: VS2017 is currently missing the std::set::merge( source&& ) overload that would accept a temporary
 			auto i2 = scan_directory_for_boost_includes( module_root / "src" );
 			ret.includes.merge( i2 );
 		}
@@ -262,13 +266,11 @@ std::map<std::string, std::string> make_file_map( const std::map<std::string, Mo
 	return file_map;
 }
 
-//template<class T>
-//std::set<T> to_set( std::vector<T>&& in )
+// template<class T>
+// std::set<T> to_set( std::vector<T>&& in )
 //{
 //	return {std::make_move_iterator( in.begin() ), std::make_move_iterator( in.end() )};
 //}
-
-
 
 auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>& modules, std::string root_module )
 	-> std::map<std::string, std::vector<std::string>>
@@ -372,10 +374,10 @@ auto build_filtered_file_dependency_map( const std::filesystem::path& boost_root
 	auto map = build_filtered_file_dependency_map( modules, root_module );
 
 	auto& root_module_e = modules.at( root_module );
-	auto& root_node = map[ root_module ];
+	auto& root_node     = map[root_module];
 
 	for( auto& [file, includes] : root_module_e.header_includes ) {
-		root_node.push_back( file ) ;
+		root_node.push_back( file );
 	}
 	for( auto& [file, includes] : root_module_e.source_includes ) {
 		root_node.push_back( file );
