@@ -142,8 +142,8 @@ void GraphWidget::update_all()
 void GraphWidget::keyPressEvent( QKeyEvent* event )
 {
 	switch( event->key() ) {
-		case Qt::Key_Space: {
-
+		case Qt::Key_Space: _paused = !_paused; break;
+		case Qt::Key_Enter: {
 			clear();
 			emit( reload_requested() );
 			break;
@@ -160,6 +160,13 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 			image.save( "Boostdep.png", "PNG", 50 );
 			break;
 		}
+		case Qt::Key_Escape: {
+			if( _selectedNode ) {
+				_selectedNode->deselect();
+				_edges.update_style();
+			}
+			break;
+		}
 		default: QGraphicsView::keyPressEvent( event );
 	}
 }
@@ -172,18 +179,19 @@ void GraphWidget::resizeEvent( QResizeEvent* event )
 
 void GraphWidget::update_positions()
 {
-	auto area = scene()->sceneRect().marginsRemoved( cfg::margins );
-
-	for( int level = 0; level < _nodes.size(); ++level ) {
-		auto& group = _nodes[level];
-		for( auto* node : group ) {
-			if( scene()->mouseGrabberItem() == node ) {
-				continue;
-			}
-			if( level > 0 ) {
-				update_position( node, group, _nodes[level - 1], area );
-			} else {
-				update_position( node, group, std::vector<Node*> {}, area );
+	if( !_paused ) {
+		auto area = scene()->sceneRect().marginsRemoved( cfg::margins );
+		for( int level = 0; level < _nodes.size(); ++level ) {
+			auto& group = _nodes[level];
+			for( auto* node : group ) {
+				if( scene()->mouseGrabberItem() == node ) {
+					continue;
+				}
+				if( level > 0 ) {
+					update_position( node, group, _nodes[level - 1], area );
+				} else {
+					update_position( node, group, std::vector<Node*> {}, area );
+				}
 			}
 		}
 	}

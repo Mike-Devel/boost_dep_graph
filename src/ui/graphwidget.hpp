@@ -45,6 +45,7 @@ private:
 
 	int   _timer_id{};
 	Node* _selectedNode = nullptr;
+	bool  _paused       = false;
 };
 } // namespace gui
 } // namespace mdev::bdg
