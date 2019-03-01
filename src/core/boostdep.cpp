@@ -219,9 +219,17 @@ scan_module_files( const fs::path& module_root, TrackSources track_sources, Trac
 
 		if( track_sources == TrackSources::Yes ) {
 			ret.source_includes = scan_directory_for_boost_includes2( module_root / "src" );
+			std::string prefix  = module_root.filename().string() + "src";
+			for( auto& e : ret.source_includes ) {
+				e.name = prefix + e.name;
+			}
 		}
 		if( track_tests == TrackTests::Yes ) {
 			ret.test_includes = scan_directory_for_boost_includes2( module_root / "test" );
+			std::string prefix = module_root.filename().string() + "test";
+			for( auto& e : ret.source_includes ) {
+				e.name = prefix + e.name;
+			}
 		}
 
 	} else {
