@@ -6,6 +6,8 @@
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
+#include <iostream>
+#include <iterator>
 
 namespace {
 
@@ -66,7 +68,6 @@ generate_module_list( std::filesystem::path boost_root, std::string root, const 
 		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
 
 	return process_dpendency_map( dependency_map, boost_root, exclude );
-
 }
 
 modules_data generate_module_list( std::filesystem::path boost_root, const std::vector<std::string>& exclude )
@@ -85,7 +86,6 @@ generate_file_list( std::filesystem::path boost_root, std::string root, const st
 		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
 
 	std::map<std::string, std::set<std::string>> dependency_map2;
-
 
 	for( auto&& file : dependency_map ) {
 		auto& e = dependency_map2[file.first];
@@ -205,6 +205,68 @@ std::vector<const ModuleInfo*> get_modules_sorted_by_dep_count( const modules_da
 	} );
 
 	return list;
+}
+
+std::vector<std::vector<std::string>> cycles( const modules_data& modules )
+{
+	std::set<std::set<const ModuleInfo*>> cycle_sets;
+
+	std::set<const ModuleInfo*> buffer;
+	for( const auto& [name, info] : modules ) {
+		std::set_intersection(                      //
+			info.all_deps.begin(),                  //
+			info.all_deps.end(),                    //
+			info.all_rev_deps.begin(),              //
+			info.all_rev_deps.end(),                //
+			std::inserter( buffer, buffer.begin() ) //
+		);
+
+		if( !buffer.empty() ) {
+			cycle_sets.insert( buffer );
+		}
+		buffer.clear();
+	}
+	std::cout << std::endl;
+
+	for( auto& cycle : cycle_sets ) {
+		for( auto& m : cycle ) {
+			std::cout << m->name << ' ';
+		}
+		std::cout << std::endl;
+	}
+	std::vector<std::vector<std::string>> ret;
+	for( const auto& c : cycle_sets ) {
+		ret.push_back( {} );
+		auto& r = ret.back();
+		for( const auto& m : c ) {
+			r.push_back( m->name );
+		}
+		std::sort( r.begin(), r.end() );
+	}
+	return ret;
+}
+
+modules_data subgraph( const modules_data& full_graph, span<const std::string> modules )
+{
+	modules_data ret;
+
+	for( const auto& m : modules ) {
+		auto& e     = ret[m];
+		e.name      = m;
+		e.level     = -1;
+		e.has_cmake = full_graph.at( m ).has_cmake;
+	}
+
+	for( auto& [name, info] : ret ) {
+		for( const auto& m : modules ) {
+			if( full_graph.at( name ).deps.count( const_cast<ModuleInfo*>( &( full_graph.at( m ) ) ) ) ) {
+				info.deps.insert( &ret[m] );
+			}
+		}
+	}
+
+	update_derived_information( ret );
+	return ret;
 }
 
 } // namespace mdev::bdg

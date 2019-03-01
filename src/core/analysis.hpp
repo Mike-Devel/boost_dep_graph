@@ -2,6 +2,8 @@
 
 #include "ModuleInfo.hpp"
 
+#include "utils.hpp"
+
 #include <filesystem>
 #include <map>
 #include <set>
@@ -42,5 +44,8 @@ inline int block_count( const ModuleInfo& module )
 	}
 	return blocked_modules;
 }
+
+std::vector<std::vector<std::string>> cycles( const modules_data& modules );
+modules_data subgraph( const modules_data& full_graph, span<const std::string> modules );
 
 } // namespace mdev::bdg
