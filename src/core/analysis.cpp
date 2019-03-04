@@ -43,8 +43,8 @@ std::string replace( const std::string& src, char match, char replacement )
 }
 
 mdev::bdg::modules_data process_dpendency_map( const std::map<std::string, std::vector<std::string>>& dependency_map,
-											   std::filesystem::path                               boost_root,
-											   const std::vector<std::string>&                     exclude )
+											   std::filesystem::path                                  boost_root,
+											   const std::vector<std::string>&                        exclude )
 {
 
 	std::vector<std::string> module_names;
@@ -59,7 +59,7 @@ mdev::bdg::modules_data process_dpendency_map( const std::map<std::string, std::
 
 		bool has_cmake = std::filesystem::exists( boost_root / "libs" / relative_path_to_root / "CMakeLists.txt" );
 
-		data[name] = mdev::bdg::ModuleInfo {name, -1, has_cmake, false};
+		data[name] = mdev::bdg::ModuleInfo{name, -1, has_cmake, false};
 	}
 
 	set_direct_deps( data, dependency_map );
@@ -76,31 +76,28 @@ namespace mdev::bdg {
 modules_data
 generate_module_list( std::filesystem::path boost_root, std::string root, const std::vector<std::string>& exclude )
 {
-	auto dependency_map = boostdep::build_filtered_module_dependency_map(
-		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
-
+	const auto files
+		= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+	const auto dependency_map = boostdep::build_filtered_module_dependency_map( files, root );
 	return process_dpendency_map( dependency_map, boost_root, exclude );
 }
 
 modules_data generate_module_list( std::filesystem::path boost_root, const std::vector<std::string>& exclude )
 {
-
-	auto dependency_map
-		= boostdep::build_module_dependency_map( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
-
+	const auto files
+		= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+	const auto dependency_map = boostdep::build_module_dependency_map( files );
 	return process_dpendency_map( dependency_map, boost_root, exclude );
 }
 
 modules_data
 generate_file_list( std::filesystem::path boost_root, std::string root, const std::vector<std::string>& exclude )
 {
-	auto dependency_map = boostdep::build_filtered_file_dependency_map(
-		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
-
+	const auto files
+		= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+	const auto dependency_map = boostdep::build_filtered_file_dependency_map( files, root );
 	return process_dpendency_map( dependency_map, boost_root, exclude );
 }
-
-
 
 void update_transitive_dependencies( modules_data& modules )
 {
