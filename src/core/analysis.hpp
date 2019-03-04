@@ -21,7 +21,7 @@ modules_data generate_module_list( std::filesystem::path           boost_root,
 								   const std::vector<std::string>& exclude = {} );
 modules_data generate_module_list( std::filesystem::path boost_root, const std::vector<std::string>& exclude = {} );
 
-void set_direct_deps( modules_data& modules, std::map<std::string, std::set<std::string>> deps );
+
 
 void update_derived_information( modules_data& modules );
 

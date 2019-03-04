@@ -6,7 +6,10 @@
 #include <cassert>
 #include <climits>
 #include <fstream>
+#include <set>
 #include <vector>
+
+#include <iostream>
 
 // clang-format off
 #ifndef BDG_DONT_USE_STD_PARALLEL
@@ -135,14 +138,18 @@ std::vector<std::string> get_included_boost_headers( fs::path const& file )
 	return headers;
 }
 
-struct IncludeInfo {
+enum class FileCategory { Unknown, Header, Source, Test };
+
+struct FileInfo {
 	std::string              name;
 	std::vector<std::string> included_files;
+	std::string              module_name;
+	FileCategory             category;
 };
 
-std::vector<IncludeInfo> scan_directory_for_boost_includes( fs::path const& dir )
+std::vector<FileInfo> scan_directory_for_boost_includes( fs::path const& dir )
 {
-	std::vector<IncludeInfo> included_headers;
+	std::vector<FileInfo> included_headers;
 	if( !fs::exists( dir ) ) {
 		return included_headers;
 	}
@@ -154,89 +161,72 @@ std::vector<IncludeInfo> scan_directory_for_boost_includes( fs::path const& dir 
 			auto file_name = entry.path().generic_string().substr( prefix_size + 1 );
 			auto includes  = get_included_boost_headers( entry.path() );
 
-			included_headers.emplace_back( IncludeInfo {std::move( file_name ), std::move( includes )} );
+			included_headers.emplace_back( FileInfo {std::move( file_name ), std::move( includes ), {}, {}} );
 		}
 	}
 	return included_headers;
 }
 
 struct ModuleInfo {
-	std::vector<IncludeInfo> header_includes;
-	std::vector<IncludeInfo> source_includes;
-	std::vector<IncludeInfo> test_includes;
+	std::string           module_name;
+	std::vector<FileInfo> files;
 };
 
-ModuleInfo scan_module_files( const fs::path& module_root, TrackSources track_sources, TrackTests track_tests )
+ModuleInfo scan_module_files( const fs::path&   module_root,
+							  const std::string module_name,
+							  TrackSources      track_sources,
+							  TrackTests        track_tests )
 {
 	ModuleInfo ret;
-	ret.header_includes = scan_directory_for_boost_includes( module_root / "include" );
+	ret.module_name = module_name;
+
+	{
+		auto files = scan_directory_for_boost_includes( module_root / "include" );
+		for( auto& f : files ) {
+			f.category    = FileCategory::Header;
+			f.module_name = module_name;
+		}
+		mdev::merge_into( std::move( files ), ret.files );
+	}
 
 	if( track_sources == TrackSources::Yes ) {
-		ret.source_includes = scan_directory_for_boost_includes( module_root / "src" );
-		std::string prefix  = module_root.filename().string() + "src";
-		for( auto& e : ret.source_includes ) {
-			e.name = prefix + e.name;
+		auto files = scan_directory_for_boost_includes( module_root / "src" );
+
+		const std::string prefix = ( module_root.filename() / "src" ).generic_string();
+		for( auto& e : files ) {
+			e.name        = prefix + e.name;
+			e.category    = FileCategory::Source;
+			e.module_name = module_name;
 		}
+		mdev::merge_into( std::move( files ), ret.files );
 	}
+
 	if( track_tests == TrackTests::Yes ) {
-		ret.test_includes  = scan_directory_for_boost_includes( module_root / "test" );
-		std::string prefix = module_root.filename().string() + "test";
-		for( auto& e : ret.source_includes ) {
-			e.name = prefix + e.name;
+		auto files = scan_directory_for_boost_includes( module_root / "test" );
+
+		const std::string prefix = ( module_root.filename() / "test" ).generic_string();
+		for( auto& e : files ) {
+			e.name        = prefix + e.name;
+			e.category    = FileCategory::Test;
+			e.module_name = module_name;
 		}
 	}
+
 	return ret;
 }
 
-struct AggregatedModuleInfo {
-	std::vector<std::string> headers;
-	std::set<std::string>    includes;
-};
-
-template<TrackOrigin track_origin>
-using ScanResult = std::conditional_t<track_origin == TrackOrigin::Yes, ModuleInfo, AggregatedModuleInfo>;
-
-AggregatedModuleInfo aggregate( const ModuleInfo& in )
-{
-	std::vector<std::string> headers;
-	headers.reserve( in.header_includes.size() );
-	for( const auto& file : in.header_includes ) {
-		headers.push_back( file.name );
-	}
-	std::sort( headers.begin(), headers.end() );
-
-	std::set<std::string> includes;
-	for( const auto& file : in.header_includes ) {
-		for( const auto& i : file.included_files ) {
-			includes.insert( i );
-		}
-	}
-	for( const auto& file : in.source_includes ) {
-		for( const auto& i : file.included_files ) {
-			includes.insert( i );
-		}
-	}
-	for( const auto& file : in.test_includes ) {
-		for( const auto& i : file.included_files ) {
-			includes.insert( i );
-		}
-	}
-
-	return {std::move( headers ), std::move( includes )};
-}
-
-template<TrackOrigin track_origin>
-std::map<std::string, ScanResult<track_origin>>
+std::vector<ModuleInfo>
 scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sources, const TrackTests track_tests )
 {
-	std::map<std::string, ScanResult<track_origin>> module_infos;
+	std::vector<ModuleInfo> module_infos;
 
 #if BDG_DONT_USE_STD_PARALLEL
 	for( auto&& [name, path] : find_modules( boost_root / "libs" ) ) {
-		module_infos[name] = scan_module_files<track_origin>( path, track_sources, track_tests );
+		module_infos.emplace_back( scan_module_files( path, name, track_sources, track_tests ) );
 	}
 #else
 	const auto modules = find_modules( boost_root / "libs" );
+	module_infos.reserve( modules.size() );
 
 	// NOTE: In principle this is a classic map_reduce problem,
 	// but my atempt in using std::transform_reduce ended in slower and more complicated code
@@ -246,81 +236,60 @@ scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sou
 		modules.begin(),     //
 		modules.end(),       //
 		[&]( const auto& m ) {
-			auto            ret = scan_module_files( m.second, track_sources, track_tests );
+			auto            ret = scan_module_files( m.second, m.first, track_sources, track_tests );
 			std::lock_guard lg( mx );
-			if constexpr( track_origin == TrackOrigin::Yes ) {
-				module_infos[m.first] = std::move( ret );
-			} else {
-				module_infos[m.first] = aggregate( ret );
-			}
+			module_infos.emplace_back( std::move( ret ) );
 		} //
 	);
 #endif
-
+	std::sort( module_infos.begin(), //
+			   module_infos.end(),   //
+			   []( const auto& l, const auto& r ) { return l.module_name < r.module_name; } );
 	return module_infos;
 }
 
-std::map<std::string, std::string> make_header_map( const std::map<std::string, AggregatedModuleInfo>& modules )
+std::vector<FileInfo> aggregate_file_infos( const std::vector<ModuleInfo>& modules )
 {
-	std::map<std::string, std::string> header_map;
-	for( auto&& [name, info] : modules ) {
-		for( auto&& h : info.headers ) {
-			header_map[h] = name;
-		}
+	std::vector<FileInfo> ret;
+	for( const auto& m : modules ) {
+		ret.insert( ret.end(), m.files.begin(), m.files.end() );
 	}
-	return header_map;
+	return ret;
 }
 
-std::map<std::string, std::string> make_file_map( const std::map<std::string, ModuleInfo>& modules )
+std::map<std::string, FileInfo> make_file_map( const std::vector<FileInfo>& files )
 {
-	std::map<std::string, std::string> file_map;
-	for( auto&& [name, info] : modules ) {
-		for( auto&& h : info.header_includes ) {
-			file_map[h.name] = name;
-		}
-		for( auto&& h : info.source_includes ) {
-			file_map[h.name] = name;
-		}
-		for( auto&& h : info.test_includes ) {
-			file_map[h.name] = name;
-		}
+	std::map<std::string, FileInfo> file_map;
+	for( auto&& f : files ) {
+		file_map[f.name] = f;
 	}
 	return file_map;
 }
 
-auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>& modules, std::string root_module )
-	-> std::map<std::string, std::vector<std::string>>
+auto build_file_dependency_map( std::vector<FileInfo> files ) -> std::map<std::string, FileInfo>
+{
+	std::map<std::string, FileInfo> file_dep_map;
+	for( auto&& f : files ) {
+		file_dep_map.emplace( f.name, std::move( f ) );
+	}
+	return file_dep_map;
+}
+
+auto build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
+	-> std::map<std::string, FileInfo>
 {
 	// file->includes
-	std::map<std::string, std::vector<std::string>> complete_file_dep_map;
-
-	for( auto& module : modules ) {
-		for( auto& file : module.second.header_includes ) {
-			complete_file_dep_map.emplace( file.name, file.included_files );
-		}
-		for( auto& file : module.second.source_includes ) {
-			complete_file_dep_map.emplace( file.name, file.included_files );
-		}
-		for( auto& file : module.second.test_includes ) {
-			complete_file_dep_map.emplace( file.name, file.included_files );
-		}
-	}
-
-	auto& root_module_e = modules.at( root_module );
+	std::map<std::string, FileInfo> complete_file_dep_map = build_file_dependency_map( files );
 
 	std::vector<std::string> unprocessed_files;
-	for( auto& [file, includes] : root_module_e.header_includes ) {
-		unprocessed_files.push_back( file );
-	}
-	for( auto& [file, includes] : root_module_e.source_includes ) {
-		unprocessed_files.push_back( file );
-	}
-	for( auto& [file, includes] : root_module_e.test_includes ) {
-		unprocessed_files.push_back( file );
+	for( auto& fi : files ) {
+		if( fi.module_name == root_module ) {
+			unprocessed_files.push_back( fi.name );
+		}
 	}
 
 	// file->includes
-	std::map<std::string, std::vector<std::string>> filtered_file_map;
+	std::map<std::string, FileInfo> filtered_file_map;
 	while( unprocessed_files.size() != 0 ) {
 		std::vector<std::string> tmp;
 
@@ -329,7 +298,7 @@ auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>
 				const auto& inc = complete_file_dep_map[file];
 
 				filtered_file_map[file] = inc;
-				tmp.insert( tmp.end(), inc.begin(), inc.end() );
+				tmp.insert( tmp.end(), inc.included_files.begin(), inc.included_files.end() );
 			}
 		}
 
@@ -341,92 +310,150 @@ auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>
 
 } // namespace
 
-auto build_module_dependency_map( const fs::path& boost_root, TrackSources track_sources, TrackTests track_tests )
-	-> std::map<std::string, std::set<std::string>>
+void updateInfo( const std::map<std::string, std::string> updates, std::vector<ModuleInfo>& modules )
 {
-	std::map<std::string, AggregatedModuleInfo> modules
-		= scan_all_boost_modules<TrackOrigin::No>( boost_root, track_sources, track_tests );
+	std::map<std::string, ModuleInfo> new_mods;
+	for( auto&& u : updates ) {
+		new_mods[u.second] = ModuleInfo {u.second};
+	}
 
-	auto header_map = make_header_map( modules );
-
-	// Create dependency map
-	std::map<std::string, std::set<std::string>> module_dependencies;
-	for( auto& [module, info] : modules ) {
-		auto& deps = module_dependencies[module];
-		for( auto&& h : info.includes ) {
-			const auto i = header_map.find( h );
-			if( i != header_map.end() ) {
-				deps.emplace( i->second );
+	for( auto& m : modules ) {
+		bool found_some = false;
+		for( auto f : m.files ) {
+			auto it = updates.find( f.name );
+			if( it != updates.end() ) {
+				if( it->second != m.module_name ) {
+					f.module_name = it->second;
+					new_mods[it->second].files.push_back( f );
+					found_some = true;
+				}
 			}
 		}
-		deps.erase( module ); // remove self dependency
-	}
-
-	return module_dependencies;
-}
-
-auto build_filtered_file_dependency_map( const std::filesystem::path& boost_root,
-										 std::string                  root_module,
-										 TrackSources                 track_sources,
-										 TrackTests                   track_tests ) //
-	-> std::map<std::string, std::vector<std::string>>
-{
-	// Scan module files
-	const std::map<std::string, ModuleInfo> modules
-		= scan_all_boost_modules<TrackOrigin::Yes>( boost_root, track_sources, track_tests );
-
-	auto map = build_filtered_file_dependency_map( modules, root_module );
-
-	auto& root_module_e = modules.at( root_module );
-	auto& root_node     = map[root_module];
-
-	for( auto& [file, includes] : root_module_e.header_includes ) {
-		root_node.push_back( file );
-	}
-	for( auto& [file, includes] : root_module_e.source_includes ) {
-		root_node.push_back( file );
-	}
-	for( auto& [file, includes] : root_module_e.test_includes ) {
-		root_node.push_back( file );
-	}
-
-	return map;
-}
-
-namespace {
-std::string to_module( const std::map<std::string, std::string>& map, const std::string& file )
-{
-	auto it = map.find( file );
-	if( it != map.end() ) {
-		return it->second;
-	} else {
-		return file;
-	}
-}
-} // namespace
-
-auto build_filtered_module_dependency_map( const fs::path& boost_root,
-										   std::string     root_module,
-										   TrackSources    track_sources,
-										   TrackTests      track_tests ) -> std::map<std::string, std::set<std::string>>
-{
-	const std::map<std::string, ModuleInfo> modules
-		= scan_all_boost_modules<TrackOrigin::Yes>( boost_root, track_sources, track_tests );
-
-	const auto file_deps = build_filtered_file_dependency_map( modules, root_module );
-
-	// file -> module
-	const auto file_map = make_file_map( modules );
-
-	std::map<std::string, std::set<std::string>> filtered_module_map;
-
-	for( auto&& e : file_deps ) {
-		auto& deps = filtered_module_map[to_module( file_map, e.first )];
-		for( auto&& include : e.second ) {
-			deps.insert( to_module( file_map, include ) );
+		if( found_some ) {
+			for( auto&& u : updates ) {
+				m.files.erase( std::remove_if( m.files.begin(),
+											   m.files.end(),
+											   [&u]( const FileInfo& i ) { return i.name == u.first; } ),
+							   m.files.end() );
+			}
 		}
 	}
-	return filtered_module_map;
+
+	for( auto&& n : new_mods ) {
+		modules.push_back( n.second );
+	}
 }
+
+const std::map<std::string, std::string> manual_assignments {
+	{"boost/date_time/posix_time/time_serialize.hpp", "date_time~serialize"},
+	{"boost/date_time/gregorian/greg_serialize.hpp", "date_time~serialize"},
+	{"boost/dynamic_bitset/serialization.hpp", "dynamic_bitset~serialize"},
+	{"boost/flyweight/serialize.hpp", "flyweight~serialize"},
+	{"boost/flyweight/detail/archive_constructed.hpp", "flyweight~serialize"},
+	{"boost/flyweight/detail/serialization_helper.hpp", "flyweight~serialize"},
+	{"boost/units/io.hpp", "units~io"},
+	{"boost/uuid/uuid_serialize.hpp", "uuid~serialize"}};
+
+DependencyGraph to_default_fomrat( std::map<std::string, std::set<std::string>>&& in )
+{
+	DependencyGraph ret;
+	for( auto& m : in ) {
+		m.second.erase( m.first ); // make sure there is no self-dependency
+		ret[m.first] = mdev::to_vector<std::string>( std::move( m.second ) );
+	}
+	return ret;
+}
+
+DependencyGraph to_default_fomrat( std::map<std::string, FileInfo>&& in )
+{
+	DependencyGraph ret;
+	for( auto& e : in ) {
+		ret[e.first] = std::move( e.second.included_files );
+	}
+	return ret;
+}
+
+DependencyGraph
+build_module_dependency_map( const fs::path& boost_root, TrackSources track_sources, TrackTests track_tests )
+{
+	auto data = scan_all_boost_modules( boost_root, track_sources, track_tests );
+
+	updateInfo( manual_assignments, data );
+
+	const auto files      = aggregate_file_infos( data );
+	const auto header_map = make_file_map( files );
+
+	std::map<std::string, std::set<std::string>> module_dependencies;
+	for( auto& f : files ) {
+		auto& m = module_dependencies[f.module_name];
+		for( auto& d : f.included_files ) {
+			try {
+				m.insert( header_map.at( d ).module_name );
+			} catch( const std::exception& ) {
+				std::cout << "unknown file  included from " << f.name << " \t: " << d << std::endl;
+			}
+		}
+	}
+
+	return to_default_fomrat( std::move( module_dependencies ) );
+}
+
+DependencyGraph build_filtered_module_dependency_map( const fs::path& boost_root,
+										   std::string     root_module,
+										   TrackSources    track_sources,
+										   TrackTests track_tests )
+{
+	// Scan module files
+	const auto modules = scan_all_boost_modules( boost_root, track_sources, track_tests );
+
+	auto file_map = build_filtered_file_dependency_map( aggregate_file_infos( modules ), root_module );
+
+	// Translate from file dependencies to module dependencies
+	std::map<std::string, std::set<std::string>> module_map;
+	for( auto& f : file_map ) {
+		auto& m = module_map[f.second.module_name];
+		for( auto& d : f.second.included_files ) {
+			try {
+				m.insert( file_map.at( d ).module_name );
+			} catch( const std::exception& ) {
+				std::cout << "unknown file  included from " << f.first << " \t: " << d << std::endl;
+			}
+		}
+	}
+
+	return to_default_fomrat( std::move( module_map ) );
+}
+
+DependencyGraph build_filtered_file_dependency_map( const std::filesystem::path& boost_root,
+													std::string                  root_module,
+													TrackSources                 track_sources,
+													TrackTests                   track_tests )
+{
+	// Scan module files
+	const auto modules = scan_all_boost_modules( boost_root, track_sources, track_tests );
+
+	const auto root_module_it
+		= std::find_if( modules.begin(), modules.end(), [&]( auto&& m ) { return m.module_name == root_module; } );
+	if( root_module_it == modules.end() ) {
+		std::cerr << "Error, specified root module " << root_module << " not found " << std::endl;
+		return {};
+	}
+
+	auto map = build_filtered_file_dependency_map( aggregate_file_infos( modules ), root_module );
+
+	// Add a fake file representing the root module
+	auto& root_node       = map[root_module];
+	root_node.name        = root_module;
+	root_node.module_name = root_module;
+	root_node.category    = FileCategory::Unknown;
+
+	for( auto& file : root_module_it->files ) {
+		root_node.included_files.push_back( file.name );
+	}
+
+	return to_default_fomrat( std::move( map ) );
+}
+
+
 
 } // namespace mdev::boostdep

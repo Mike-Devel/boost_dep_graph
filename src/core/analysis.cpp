@@ -11,6 +11,18 @@
 
 namespace {
 
+void set_direct_deps( mdev::bdg::modules_data& modules, std::map<std::string, std::vector<std::string>> deps )
+{
+	for( auto& [name1, info1] : modules ) {
+		for( auto& [name2, info2] : modules ) {
+			if( std::count( deps[name1].begin(), deps[name1].end(), name2 ) != 0 ) {
+				info1.deps.insert( &info2 );
+				info2.rev_deps.insert( &info1 );
+			}
+		}
+	}
+}
+
 template<class T, class F>
 T filter( const T& data, const F& exclude )
 {
@@ -30,7 +42,7 @@ std::string replace( const std::string& src, char match, char replacement )
 	return ret;
 }
 
-mdev::bdg::modules_data process_dpendency_map( const std::map<std::string, std::set<std::string>>& dependency_map,
+mdev::bdg::modules_data process_dpendency_map( const std::map<std::string, std::vector<std::string>>& dependency_map,
 											   std::filesystem::path                               boost_root,
 											   const std::vector<std::string>&                     exclude )
 {
@@ -85,29 +97,10 @@ generate_file_list( std::filesystem::path boost_root, std::string root, const st
 	auto dependency_map = boostdep::build_filtered_file_dependency_map(
 		boost_root, root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
 
-	std::map<std::string, std::set<std::string>> dependency_map2;
-
-	for( auto&& file : dependency_map ) {
-		auto& e = dependency_map2[file.first];
-		for( auto&& dep : file.second ) {
-			e.insert( dep );
-		}
-	}
-
-	return process_dpendency_map( dependency_map2, boost_root, exclude );
+	return process_dpendency_map( dependency_map, boost_root, exclude );
 }
 
-void set_direct_deps( modules_data& modules, std::map<std::string, std::set<std::string>> deps )
-{
-	for( auto& [name1, info1] : modules ) {
-		for( auto& [name2, info2] : modules ) {
-			if( deps[name1].count( name2 ) != 0 ) {
-				info1.deps.insert( &info2 );
-				info2.rev_deps.insert( &info1 );
-			}
-		}
-	}
-}
+
 
 void update_transitive_dependencies( modules_data& modules )
 {

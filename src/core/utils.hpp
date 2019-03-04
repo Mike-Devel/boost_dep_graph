@@ -57,4 +57,10 @@ private:
 	std::size_t _size;
 };
 
+template<class T, class C>
+std::vector<T> to_vector( C container )
+{
+	return std::vector<T>( std::make_move_iterator( container.begin() ), std::make_move_iterator( container.end() ) );
+}
+
 } // namespace mdev
