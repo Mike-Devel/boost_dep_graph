@@ -102,7 +102,7 @@ void Edge::update_style()
 	int line_width = is_selected ? 3 : 1;
 
 	if( is_selected ) {
-		this->setZValue( 1 );
+		this->setZValue( 1 + no_cmake );
 	} else if( no_cmake ) {
 		this->setZValue( -1 );
 	} else {
