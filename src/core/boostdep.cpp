@@ -56,23 +56,6 @@ auto find_modules( fs::path const& path, const std::string& prefix = "" ) -> std
 	return ret;
 }
 
-auto discover_headers( fs::path const& root_dir ) -> std::vector<std::string>
-{
-	auto prefix_size = root_dir.generic_string().size();
-
-	std::vector<std::string> headers;
-	for( auto&& entry : fs::recursive_directory_iterator( root_dir ) ) {
-		if( !entry.is_directory() ) {
-			auto extension = entry.path().extension();
-			if( extension == ".hpp" || extension == ".h" ) {
-				// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
-				headers.push_back( entry.path().generic_string().substr( prefix_size + 1 ) );
-			}
-		}
-	}
-	return headers;
-}
-
 //################### Parse includes #####################################
 
 std::string_view trim_left( std::string_view str )
@@ -152,28 +135,12 @@ std::vector<std::string> get_included_boost_headers( fs::path const& file )
 	return headers;
 }
 
-std::set<std::string> scan_directory_for_boost_includes( fs::path const& dir )
-{
-	std::set<std::string> included_headers;
-	if( !fs::exists( dir ) ) {
-		return included_headers;
-	}
-	for( auto& entry : fs::recursive_directory_iterator( dir ) ) {
-		if( entry.is_regular_file() ) {
-			auto includs = get_included_boost_headers( entry.path() );
-			included_headers.insert( std::make_move_iterator( includs.begin() ),
-									 std::make_move_iterator( includs.end() ) );
-		}
-	}
-	return included_headers;
-}
-
 struct IncludeInfo {
 	std::string              name;
 	std::vector<std::string> included_files;
 };
 
-std::vector<IncludeInfo> scan_directory_for_boost_includes2( fs::path const& dir )
+std::vector<IncludeInfo> scan_directory_for_boost_includes( fs::path const& dir )
 {
 	std::vector<IncludeInfo> included_headers;
 	if( !fs::exists( dir ) ) {
@@ -199,6 +166,28 @@ struct ModuleInfo {
 	std::vector<IncludeInfo> test_includes;
 };
 
+ModuleInfo scan_module_files( const fs::path& module_root, TrackSources track_sources, TrackTests track_tests )
+{
+	ModuleInfo ret;
+	ret.header_includes = scan_directory_for_boost_includes( module_root / "include" );
+
+	if( track_sources == TrackSources::Yes ) {
+		ret.source_includes = scan_directory_for_boost_includes( module_root / "src" );
+		std::string prefix  = module_root.filename().string() + "src";
+		for( auto& e : ret.source_includes ) {
+			e.name = prefix + e.name;
+		}
+	}
+	if( track_tests == TrackTests::Yes ) {
+		ret.test_includes  = scan_directory_for_boost_includes( module_root / "test" );
+		std::string prefix = module_root.filename().string() + "test";
+		for( auto& e : ret.source_includes ) {
+			e.name = prefix + e.name;
+		}
+	}
+	return ret;
+}
+
 struct AggregatedModuleInfo {
 	std::vector<std::string> headers;
 	std::set<std::string>    includes;
@@ -207,63 +196,48 @@ struct AggregatedModuleInfo {
 template<TrackOrigin track_origin>
 using ScanResult = std::conditional_t<track_origin == TrackOrigin::Yes, ModuleInfo, AggregatedModuleInfo>;
 
-template<TrackOrigin track_origin>
-ScanResult<track_origin>
-scan_module_files( const fs::path& module_root, TrackSources track_sources, TrackTests track_tests )
+AggregatedModuleInfo aggregate( const ModuleInfo& in )
 {
-	ScanResult<track_origin> ret;
+	std::vector<std::string> headers;
+	headers.reserve( in.header_includes.size() );
+	for( const auto& file : in.header_includes ) {
+		headers.push_back( file.name );
+	}
+	std::sort( headers.begin(), headers.end() );
 
-	if constexpr( track_origin == TrackOrigin::Yes ) {
-
-		ret.header_includes = scan_directory_for_boost_includes2( module_root / "include" );
-
-		if( track_sources == TrackSources::Yes ) {
-			ret.source_includes = scan_directory_for_boost_includes2( module_root / "src" );
-			std::string prefix  = module_root.filename().string() + "src";
-			for( auto& e : ret.source_includes ) {
-				e.name = prefix + e.name;
-			}
+	std::set<std::string> includes;
+	for( const auto& file : in.header_includes ) {
+		for( const auto& i : file.included_files ) {
+			includes.insert( i );
 		}
-		if( track_tests == TrackTests::Yes ) {
-			ret.test_includes = scan_directory_for_boost_includes2( module_root / "test" );
-			std::string prefix = module_root.filename().string() + "test";
-			for( auto& e : ret.source_includes ) {
-				e.name = prefix + e.name;
-			}
+	}
+	for( const auto& file : in.source_includes ) {
+		for( const auto& i : file.included_files ) {
+			includes.insert( i );
 		}
-
-	} else {
-		ret.headers  = discover_headers( module_root / "include" );
-		ret.includes = scan_directory_for_boost_includes( module_root / "include" );
-
-		if( track_sources == TrackSources::Yes ) {
-			// TODO c++17: ret.includes.merge( scan_directory_for_boost_includes( module_root / "include" ) );
-			// Note: VS2017 is currently missing the std::set::merge( source&& ) overload that would accept a temporary
-			auto i2 = scan_directory_for_boost_includes( module_root / "src" );
-			ret.includes.merge( i2 );
-		}
-
-		if( track_tests == TrackTests::Yes ) {
-			auto i3 = scan_directory_for_boost_includes( module_root / "test" );
-			ret.includes.merge( i3 );
+	}
+	for( const auto& file : in.test_includes ) {
+		for( const auto& i : file.included_files ) {
+			includes.insert( i );
 		}
 	}
 
-	return ret;
+	return {std::move( headers ), std::move( includes )};
 }
 
 template<TrackOrigin track_origin>
 std::map<std::string, ScanResult<track_origin>>
 scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sources, const TrackTests track_tests )
 {
-	const auto                                      modules = find_modules( boost_root / "libs" );
 	std::map<std::string, ScanResult<track_origin>> module_infos;
+
 #if BDG_DONT_USE_STD_PARALLEL
-	std::map<std::string, ScanResult<track_origin>> modules;
 	for( auto&& [name, path] : find_modules( boost_root / "libs" ) ) {
 		module_infos[name] = scan_module_files<track_origin>( path, track_sources, track_tests );
 	}
 #else
+	const auto modules = find_modules( boost_root / "libs" );
+
 	// NOTE: In principle this is a classic map_reduce problem,
 	// but my atempt in using std::transform_reduce ended in slower and more complicated code
 	std::mutex mx;
@@ -272,12 +246,17 @@ scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sou
 		modules.begin(),     //
 		modules.end(),       //
 		[&]( const auto& m ) {
-			auto            ret = scan_module_files<track_origin>( m.second, track_sources, track_tests );
+			auto            ret = scan_module_files( m.second, track_sources, track_tests );
 			std::lock_guard lg( mx );
-			module_infos[m.first] = ret;
+			if constexpr( track_origin == TrackOrigin::Yes ) {
+				module_infos[m.first] = std::move( ret );
+			} else {
+				module_infos[m.first] = aggregate( ret );
+			}
 		} //
 	);
 #endif
+
 	return module_infos;
 }
 
@@ -359,15 +338,15 @@ auto build_filtered_file_dependency_map( const std::map<std::string, ModuleInfo>
 
 	return filtered_file_map;
 }
+
 } // namespace
 
 auto build_module_dependency_map( const fs::path& boost_root, TrackSources track_sources, TrackTests track_tests )
 	-> std::map<std::string, std::set<std::string>>
 {
-	const std::map<std::string, AggregatedModuleInfo> modules
+	std::map<std::string, AggregatedModuleInfo> modules
 		= scan_all_boost_modules<TrackOrigin::No>( boost_root, track_sources, track_tests );
 
-	// create header map
 	auto header_map = make_header_map( modules );
 
 	// Create dependency map
