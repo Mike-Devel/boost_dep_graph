@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QMainWindow>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -97,9 +98,20 @@ int main( int argc, char** argv )
 	//auto rescan = [&modules, &modules2, &graph_widget, &graph_widget2] {
 		auto boost_root = determine_boost_root();
 
-		modules = generate_module_list( boost_root,  filter );
-		//modules = generate_module_list( boost_root, "serialization", filter );
-		//modules = generate_file_list( boost_root, "serialization", filter );
+		bool    ok = false;
+		QString text
+			= QInputDialog::getText( nullptr, "Select root library", "RootLib:", QLineEdit::Normal, "none", &ok );
+		if( !ok ) {
+			exit( 1 );
+		}
+		if( text.isEmpty() || text == "none" ) {
+			modules = generate_module_list( boost_root, filter );
+		} else {
+			modules = generate_module_list( boost_root, text.toStdString(), filter );
+			// modules = generate_file_list( boost_root, "serialization", filter );
+		}
+
+		auto cs = cycles( modules );
 
 		//print_stats( modules );
 		graph_widget->set_data( &modules );
