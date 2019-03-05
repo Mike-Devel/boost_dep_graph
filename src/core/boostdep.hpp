@@ -22,13 +22,13 @@ std::vector<FileInfo> scan_all_boost_modules( const std::filesystem::path& boost
 											  const TrackSources           track_sources,
 											  const TrackTests             track_tests );
 
-using DependencyGraph = std::map<std::string, std::vector<std::string>>;
+using DependencyInfo = std::map<std::string, std::vector<std::string>>;
 
-DependencyGraph build_module_dependency_map( const std::vector<FileInfo>& files );
+DependencyInfo build_module_dependency_map( const std::vector<FileInfo>& files );
 
 // This will only return modules that the files in root_module directly or indirectly depend on
 // Note: This function is tracking actual include chains - not "library level dependencies"
-DependencyGraph build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string root_module );
+DependencyInfo build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string root_module );
 
-DependencyGraph build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module );
+DependencyInfo build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module );
 } // namespace mdev::boostdep

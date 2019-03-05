@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <iostream>
 
 namespace mdev::bdg {
 
@@ -30,22 +31,9 @@ std::vector<const ModuleInfo*> get_modules_sorted_by_dep_count( const modules_da
 
 void update_cmake_status( ModuleInfo& module );
 
-inline int block_count( const ModuleInfo& module )
-{
-	if( module.has_cmake ) {
-		return 0;
-	}
-	int blocked_modules = 0;
-	for( auto* m : module.all_rev_deps ) {
-		const auto cnt
-			= std::count_if( m->all_deps.begin(), m->all_deps.end(), []( ModuleInfo* m ) { return !m->has_cmake; } );
-		if( cnt == 1 ) {
-			blocked_modules++;
-		}
-	}
-	return blocked_modules;
-}
+int block_count( const ModuleInfo& module );
 
+void print_cmake_stats( const modules_data& modules );
 std::vector<std::vector<std::string>> cycles( const modules_data& modules );
 modules_data subgraph( const modules_data& full_graph, span<const std::string> modules );
 

@@ -10,18 +10,20 @@ namespace mdev::bdg {
 struct ModuleInfo {
 
 	std::string           name;
-	int                   level;
-	bool                  has_cmake;
-	bool                  deps_have_cmake;
+	bool                  has_cmake = false;
 	std::set<ModuleInfo*> deps;
 	std::set<ModuleInfo*> all_deps;
+
+	// cached information
+	int                   level = -1;
+	bool                  deps_have_cmake = false;
 	std::set<ModuleInfo*> rev_deps;
 	std::set<ModuleInfo*> all_rev_deps;
 
 	friend bool operator<( const ModuleInfo& l, const ModuleInfo& r ) { return l.name < r.name; }
 };
 
-struct modules_data : public std::map<std::string, ModuleInfo> {
+struct modules_data : std::map<std::string, ModuleInfo> {
 };
 
 } // namespace mdev::bdg

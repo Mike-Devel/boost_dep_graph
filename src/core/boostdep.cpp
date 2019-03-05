@@ -11,16 +11,17 @@
 
 #include <iostream>
 
+//#define BDG_DONT_USE_STD_PARALLEL
+
 // clang-format off
 #ifndef BDG_DONT_USE_STD_PARALLEL
-	#ifdef __cpp_lib_parallel_algorithm
-		#define BDG_DONT_USE_STD_PARALLEL 0
-	#else
-		#define BDG_DONT_USE_STD_PARALLEL 1
+	#ifndef __cpp_lib_parallel_algorithm
+		#define BDG_DONT_USE_STD_PARALLEL
 	#endif
 #endif // !BDG_DONT_USE_STD_PARALLE
 
-#if !BDG_DONT_USE_STD_PARALLEL
+
+#ifndef BDG_DONT_USE_STD_PARALLEL
 	#include <execution>
 	#include <mutex>
 #endif //
@@ -33,7 +34,7 @@ namespace mdev::boostdep {
 
 namespace {
 
-//################### Detect headers #####################################
+//################### Detect Modules #####################################
 
 auto find_modules( fs::path const& path, const std::string& prefix = "" ) -> std::map<std::string, fs::path>
 {
@@ -44,16 +45,16 @@ auto find_modules( fs::path const& path, const std::string& prefix = "" ) -> std
 			continue;
 		}
 
-		fs::path    mpath       = entry.path();
-		std::string module_name = std::string( prefix + mpath.filename().string() );
+		fs::path    mpath = entry.path();
+		std::string mname = std::string( prefix + mpath.filename().string() );
 
 		if( fs::exists( mpath / "sublibs" ) ) {
-			auto r = find_modules( mpath, module_name + "~" );
+			auto r = find_modules( mpath, mname + "~" );
 			ret.merge( r );
 		}
 
 		if( fs::exists( mpath / "include" ) ) {
-			ret[module_name] = mpath;
+			ret[mname] = mpath;
 		}
 	}
 	return ret;
@@ -71,7 +72,17 @@ std::string_view trim_left( std::string_view str )
 	}
 }
 
-// remove prefix <pattern> from str
+std::string_view trim_left_with( std::string_view str, char c )
+{
+	auto i = str.find_first_not_of( " \t" );
+	if( i == std::string_view::npos || str[i] != c ) {
+		return std::string_view{};
+	} else {
+		return str.substr( i + 1 );
+	}
+}
+
+// remove prefix from str
 // returns view of remaining string, or empty string_view
 std::string_view trim_prefix( std::string_view str, std::string_view prefix )
 {
@@ -100,9 +111,8 @@ std::string_view strip_quotes( std::string_view str )
 
 std::string_view get_included_file_from_line( std::string_view str )
 {
-	// line=   #  include <boost/foo/bar/baz.h>
-	str = trim_left( str );        // str=#  include <boost/foo/bar/baz.hpp>
-	str = trim_prefix( str, "#" ); // str=  include <boost/foo/bar/baz.hpp>
+	//                                   str=   #  include <boost/foo/bar/baz.h>
+	str = trim_left_with( str, '#' ); // str=include <boost/foo/bar/baz.hpp>
 	if( str.size() == 0 ) return {};
 	str = trim_left( str );              // str=include <boost/foo/bar/baz.hpp>
 	str = trim_prefix( str, "include" ); // str= <boost/foo/bar/baz.hpp>
@@ -138,123 +148,69 @@ std::vector<std::string> get_included_boost_headers( fs::path const& file )
 	return headers;
 }
 
-std::vector<FileInfo> scan_directory_for_boost_includes( fs::path const& dir )
+/**
+ * dir:  directory to search,
+ * prefix: Filnames will be given relative to this director MUST BE A PARENT OF dir!
+ */
+std::vector<FileInfo>
+scan_files_in_directory( fs::path const& dir, fs::path const& prefix, FileInfo base_template = {} )
 {
-	std::vector<FileInfo> included_headers;
+	std::vector<FileInfo> discovered_files;
 	if( !fs::exists( dir ) ) {
-		return included_headers;
+		return discovered_files;
 	}
 
-	const auto prefix_size = dir.generic_string().size();
+	const auto prefix_size = prefix.generic_string().size();
 	for( auto& entry : fs::recursive_directory_iterator( dir ) ) {
 		if( entry.is_regular_file() ) {
-			// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
-			auto file_name = entry.path().generic_string().substr( prefix_size + 1 );
-			auto includes  = get_included_boost_headers( entry.path() );
+			FileInfo f = base_template;
 
-			included_headers.emplace_back( FileInfo{std::move( file_name ), std::move( includes ), {}, {}} );
+			// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
+			f.name           = entry.path().generic_string().substr( prefix_size + 1 );
+			f.included_files = get_included_boost_headers( entry.path() );
+
+			discovered_files.push_back( std::move( f ) );
 		}
 	}
-	return included_headers;
+	return discovered_files;
 }
-
-struct ModuleInfo {
-	std::string           module_name;
-	std::vector<FileInfo> files;
-};
 
 std::vector<FileInfo> scan_module_files( const fs::path&   module_root,
 										 const std::string module_name,
 										 TrackSources      track_sources,
 										 TrackTests        track_tests )
 {
-	std::vector<FileInfo> ret;
+	FileInfo base_template;
+	base_template.module_name = module_name;
 
+	std::vector<FileInfo> ret;
 	{
-		auto files = scan_directory_for_boost_includes( module_root / "include" );
-		for( auto& f : files ) {
-			f.category    = FileCategory::Header;
-			f.module_name = module_name;
-		}
+		base_template.category = FileCategory::Header;
+
+		auto files = scan_files_in_directory( module_root / "include", module_root / "include", base_template );
+
 		mdev::merge_into( std::move( files ), ret );
 	}
 
 	if( track_sources == TrackSources::Yes ) {
-		auto files = scan_directory_for_boost_includes( module_root / "src" );
 
-		const std::string prefix = ( module_root.filename() / "src" ).generic_string();
-		for( auto& e : files ) {
-			e.name        = prefix + e.name;
-			e.category    = FileCategory::Source;
-			e.module_name = module_name;
-		}
+		base_template.category = FileCategory::Source;
+
+		// filenames of source code file include module itself
+		auto files = scan_files_in_directory( module_root / "src", module_root.parent_path(), base_template );
+
 		mdev::merge_into( std::move( files ), ret );
 	}
 
 	if( track_tests == TrackTests::Yes ) {
-		auto files = scan_directory_for_boost_includes( module_root / "test" );
+		base_template.category = FileCategory::Test;
 
-		const std::string prefix = ( module_root.filename() / "test" ).generic_string();
-		for( auto& e : files ) {
-			e.name        = prefix + e.name;
-			e.category    = FileCategory::Test;
-			e.module_name = module_name;
-		}
+		auto files = scan_files_in_directory( module_root / "test", module_root.parent_path(), base_template );
+
 		mdev::merge_into( std::move( files ), ret );
 	}
 
 	return ret;
-}
-
-std::map<std::string, FileInfo> make_file_map( const std::vector<FileInfo>& files )
-{
-	std::map<std::string, FileInfo> file_map;
-	for( auto&& f : files ) {
-		file_map[f.name] = f;
-	}
-	return file_map;
-}
-
-auto build_file_dependency_map( std::vector<FileInfo> files ) -> std::map<std::string, FileInfo>
-{
-	std::map<std::string, FileInfo> file_dep_map;
-	for( auto&& f : files ) {
-		file_dep_map.emplace( f.name, std::move( f ) );
-	}
-	return file_dep_map;
-}
-
-auto build_basic_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
-	-> std::map<std::string, FileInfo>
-{
-	// file->includes
-	std::map<std::string, FileInfo> complete_file_dep_map = build_file_dependency_map( files );
-
-	std::vector<std::string> unprocessed_files;
-	for( auto& fi : files ) {
-		if( fi.module_name == root_module ) {
-			unprocessed_files.push_back( fi.name );
-		}
-	}
-
-	// file->includes
-	std::map<std::string, FileInfo> filtered_file_map;
-	while( unprocessed_files.size() != 0 ) {
-		std::vector<std::string> tmp;
-
-		for( auto& file : unprocessed_files ) {
-			if( filtered_file_map.count( file ) == 0 ) {
-				const auto& inc = complete_file_dep_map[file];
-
-				filtered_file_map[file] = inc;
-				tmp.insert( tmp.end(), inc.included_files.begin(), inc.included_files.end() );
-			}
-		}
-
-		std::swap( tmp, unprocessed_files );
-	}
-
-	return filtered_file_map;
 }
 
 } // namespace
@@ -262,39 +218,99 @@ auto build_basic_filtered_file_dependency_map( const std::vector<FileInfo>& file
 std::vector<FileInfo>
 scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sources, const TrackTests track_tests )
 {
-	std::vector<FileInfo> module_infos;
-
-#if BDG_DONT_USE_STD_PARALLEL
-	for( auto&& [name, path] : find_modules( boost_root / "libs" ) ) {
-		module_infos.emplace_back( scan_module_files( path, name, track_sources, track_tests ) );
-	}
-#else
 	const auto modules = find_modules( boost_root / "libs" );
-	module_infos.reserve( modules.size() );
 
+	std::vector<FileInfo> module_infos;
+	module_infos.reserve( modules.size() );
 	// NOTE: In principle this is a classic map_reduce problem,
 	// but my atempt in using std::transform_reduce ended in slower and more complicated code
+
+#ifndef BDG_DONT_USE_STD_PARALLEL
 	std::mutex mx;
-	std::for_each(           //
+#endif
+	std::for_each( //
+#ifndef BDG_DONT_USE_STD_PARALLEL
 		std::execution::par, //
-		modules.begin(),     //
-		modules.end(),       //
+#endif
+		modules.begin(), //
+		modules.end(),   //
 		[&]( const auto& m ) {
-			auto            ret = scan_module_files( m.second, m.first, track_sources, track_tests );
+			auto ret = scan_module_files( m.second, m.first, track_sources, track_tests );
+#ifndef BDG_DONT_USE_STD_PARALLEL
 			std::lock_guard lg( mx );
+#endif
 			merge_into( std::move( ret ), module_infos );
 		} //
 	);
-#endif
 	std::sort( module_infos.begin(), //
 			   module_infos.end(),   //
 			   []( const auto& l, const auto& r ) { return l.module_name < r.module_name; } );
 	return module_infos;
 }
 
-DependencyGraph to_default_fomrat( std::map<std::string, std::set<std::string>>&& in )
+//########################################## analysis ########################################################
+
+namespace {
+std::map<std::string, FileInfo> make_file_map( std::vector<FileInfo> files )
 {
-	DependencyGraph ret;
+	std::map<std::string, FileInfo> file_map;
+	for( auto&& f : files ) {
+		file_map.emplace( f.name, std::move( f ) );
+	}
+	return file_map;
+}
+
+auto filter_file_map( const std::map<std::string, FileInfo>& file_map, std::string root_module )
+	-> std::map<std::string, FileInfo>
+{
+	// file_name -> file_info
+	std::set<std::string> unprocessed_files;
+	for( auto& [name, info] : file_map ) {
+		if( info.module_name == root_module ) {
+			unprocessed_files.insert( name );
+		}
+	}
+
+	// file_name -> file_info
+	std::map<std::string, FileInfo> filtered_file_map;
+	while( unprocessed_files.size() != 0 ) {
+
+		std::set<std::string> new_unprocessed_files;
+		for( const auto& file : unprocessed_files ) {
+			if( filtered_file_map.count( file ) == 0 ) {
+				const auto& inc = file_map.at( file );
+
+				filtered_file_map[file] = inc;
+				new_unprocessed_files.insert( inc.included_files.begin(), inc.included_files.end() );
+			}
+		}
+		std::swap( new_unprocessed_files, unprocessed_files );
+	}
+
+	return filtered_file_map;
+}
+
+auto file_map_to_module_dep_map( const std::map<std::string, FileInfo>& files )
+	-> std::map<std::string, std::set<std::string>>
+{
+	std::map<std::string, std::set<std::string>> module_dependencies;
+	for( auto& [name, info] : files ) {
+		auto& m = module_dependencies[info.module_name];
+		for( auto& d : info.included_files ) {
+			try {
+				m.insert( files.at( d ).module_name );
+			} catch( const std::exception& ) {
+				std::cout << "unknown file  included from " << name << " \t: " << d << std::endl;
+			}
+		}
+	}
+	return module_dependencies;
+}
+
+// tanslate internal format into the API format
+DependencyInfo to_default_fomrat( std::map<std::string, std::set<std::string>>&& in )
+{
+	DependencyInfo ret;
 	for( auto& m : in ) {
 		m.second.erase( m.first ); // make sure there is no self-dependency
 		ret[m.first] = mdev::to_vector<std::string>( std::move( m.second ) );
@@ -302,67 +318,42 @@ DependencyGraph to_default_fomrat( std::map<std::string, std::set<std::string>>&
 	return ret;
 }
 
-DependencyGraph to_default_fomrat( std::map<std::string, FileInfo>&& in )
+DependencyInfo to_default_fomrat( std::map<std::string, FileInfo>&& in )
 {
-	DependencyGraph ret;
+	DependencyInfo ret;
 	for( auto& e : in ) {
 		ret[e.first] = std::move( e.second.included_files );
 	}
 	return ret;
 }
 
-DependencyGraph build_module_dependency_map( const std::vector<FileInfo>& files )
-{
-	const auto header_map = make_file_map( files );
+} // namespace
 
-	std::map<std::string, std::set<std::string>> module_dependencies;
-	for( auto& f : files ) {
-		auto& m = module_dependencies[f.module_name];
-		for( auto& d : f.included_files ) {
-			try {
-				m.insert( header_map.at( d ).module_name );
-			} catch( const std::exception& ) {
-				std::cout << "unknown file  included from " << f.name << " \t: " << d << std::endl;
-			}
-		}
-	}
+DependencyInfo build_module_dependency_map( const std::vector<FileInfo>& files )
+{
+	// file -> FileInfo
+	const auto file_map = make_file_map( files );
+
+	auto module_dependencies = file_map_to_module_dep_map( file_map );
 
 	return to_default_fomrat( std::move( module_dependencies ) );
 }
 
-DependencyGraph build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
+DependencyInfo build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
 {
-	auto file_map = build_basic_filtered_file_dependency_map( files, root_module );
+	const auto filtered_map = filter_file_map( make_file_map( files ), root_module );
 
-	// Translate from file dependencies to module dependencies
-	std::map<std::string, std::set<std::string>> module_map;
-	for( auto& f : file_map ) {
-		auto& m = module_map[f.second.module_name];
-		for( auto& d : f.second.included_files ) {
-			try {
-				m.insert( file_map.at( d ).module_name );
-			} catch( const std::exception& ) {
-				std::cout << "unknown file  included from " << f.first << " \t: " << d << std::endl;
-			}
-		}
-	}
+	auto module_dependencies = file_map_to_module_dep_map( filtered_map );
 
-	return to_default_fomrat( std::move( module_map ) );
+	return to_default_fomrat( std::move( module_dependencies ) );
 }
 
-DependencyGraph build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
+DependencyInfo build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
 {
-	const auto root_module_it
-		= std::find_if( files.begin(), files.end(), [&]( auto&& f ) { return f.module_name == root_module; } );
-	if( root_module_it == files.end() ) {
-		std::cerr << "Error, specified root module " << root_module << " not found " << std::endl;
-		return {};
-	}
-
-	auto map = build_basic_filtered_file_dependency_map( files, root_module );
+	auto filtered_map = filter_file_map( make_file_map( files ), root_module );
 
 	// Add a fake file representing the root module
-	auto& root_node       = map[root_module];
+	auto& root_node       = filtered_map[root_module];
 	root_node.name        = root_module;
 	root_node.module_name = root_module;
 	root_node.category    = FileCategory::Unknown;
@@ -373,7 +364,9 @@ DependencyGraph build_filtered_file_dependency_map( const std::vector<FileInfo>&
 		}
 	}
 
-	return to_default_fomrat( std::move( map ) );
+	std::sort( root_node.included_files.begin(), root_node.included_files.end() );
+
+	return to_default_fomrat( std::move( filtered_map ) );
 }
 
 } // namespace mdev::boostdep
