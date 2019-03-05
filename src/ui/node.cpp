@@ -99,6 +99,7 @@ void Node::mousePressEvent( QGraphicsSceneMouseEvent* event )
 			update_cmake_status( *info );
 		}
 		_graph->update_all();
+		emit _graph->reprint_stats_requested();
 	} else {
 		QGraphicsItem::mousePressEvent( event );
 		_graph->change_selected_node( this );

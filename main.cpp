@@ -118,9 +118,12 @@ int main( int argc, char** argv )
 		//graph_widget2->set_data( &modules2 );
 	};
 
+	auto print_stats = [&] { print_cmake_stats( modules ); };
+
 	rescan();
 
 	QObject::connect( graph_widget, &gui::GraphWidget::reload_requested, rescan );
+	QObject::connect( graph_widget, &gui::GraphWidget::reprint_stats_requested, print_stats );
 	main_window.show();
 
 	//QObject::connect( graph_widget2, &gui::GraphWidget::reload_requested, rescan );

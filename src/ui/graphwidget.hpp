@@ -1,9 +1,9 @@
 #pragma once
 
+#include "edges.hpp"
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <vector>
-#include "edges.hpp"
 
 namespace mdev::bdg {
 
@@ -22,7 +22,6 @@ public:
 
 	void set_data( mdev::bdg::modules_data* modules );
 
-
 public slots:
 	void change_selected_node( Node* );
 	void clear();
@@ -30,6 +29,7 @@ public slots:
 
 signals:
 	void reload_requested();
+	void reprint_stats_requested();
 
 protected:
 	void keyPressEvent( QKeyEvent* event ) override;
