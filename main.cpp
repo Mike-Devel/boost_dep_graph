@@ -25,23 +25,6 @@
 using namespace mdev;
 using namespace mdev::bdg;
 
-void print_stats( const modules_data& modules )
-{
-	std::vector<const ModuleInfo*> modules_sorted_by_dep_count = get_modules_sorted_by_dep_count( modules );
-
-	int count = 0;
-	std::cout <<"Total Rev Dep cnt" << "/" << "without cmake" << "/" << "blocked" << "\t" << "name" << "\n";
-	for( auto m : modules_sorted_by_dep_count ) {
-		if( !m->has_cmake ) {
-			count++;
-			auto ncdpcnt = std::count_if(
-				m->all_rev_deps.begin(), m->all_rev_deps.end(), []( const auto& p ) { return !p->has_cmake; } );
-			auto blocked_cnt = block_count( *m );
-			std::cout << m->all_rev_deps.size() << "/" << ncdpcnt << "/" << blocked_cnt << "\t" << m->name << "\n";
-		}
-	}
-	std::cout << "Modules without a cmake file: " << count << std::endl;
-}
 
 // This is the list of boost libraries that is ignored in the following process
 
@@ -81,21 +64,19 @@ const std::vector<std::string> filter; // Add modules that should be ignored
 int main( int argc, char** argv )
 {
 	QApplication app( argc, argv );
-	QMainWindow main_window;
-	//QMainWindow main_window2;
+	QMainWindow  main_window;
 
 	auto graph_widget = new gui::GraphWidget();
-	//auto graph_widget2 = new gui::GraphWidget();
+
 
 	main_window.setCentralWidget( graph_widget );
-	//main_window2.setCentralWidget( graph_widget2 );
 
-	// This data is referenced from multiple places in the UI, so it has to stay alive as long as the app is running
+		// This data is referenced from multiple places in the UI, so it has to stay alive as long as the app is running
 	modules_data modules;
-	//modules_data modules2;
+
 
 	auto rescan = [&modules, &graph_widget] {
-	//auto rescan = [&modules, &modules2, &graph_widget, &graph_widget2] {
+
 		auto boost_root = determine_boost_root();
 
 		bool    ok = false;
@@ -112,10 +93,15 @@ int main( int argc, char** argv )
 		}
 
 		auto cs = cycles( modules );
-
-		//print_stats( modules );
+		std::cout << "Cycles:\n";
+		for( auto& c : cs ) {
+			for( auto& e : c ) {
+				std::cout << e << " ";
+			}
+			std::cout << std::endl;
+		}
+		print_cmake_stats( modules );
 		graph_widget->set_data( &modules );
-		//graph_widget2->set_data( &modules2 );
 	};
 
 	auto print_stats = [&] { print_cmake_stats( modules ); };
@@ -125,9 +111,6 @@ int main( int argc, char** argv )
 	QObject::connect( graph_widget, &gui::GraphWidget::reload_requested, rescan );
 	QObject::connect( graph_widget, &gui::GraphWidget::reprint_stats_requested, print_stats );
 	main_window.show();
-
-	//QObject::connect( graph_widget2, &gui::GraphWidget::reload_requested, rescan );
-	//main_window2.show();
 
 	return app.exec();
 }

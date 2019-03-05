@@ -29,10 +29,7 @@ find_package(Qt5Core CONFIG REQUIRED)
 add_subdirectory(src/ui)
 add_subdirectory(src/core)
 
-
 ######### generate the executable ############################################
-
-find_package(Qt5Core CONFIG REQUIRED)
 add_executable(	boost_dep_graph main.cpp )
 
 target_link_libraries( boost_dep_graph
