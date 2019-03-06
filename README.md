@@ -3,6 +3,9 @@ A tool to visualize the boost dependency graph.
 
 ![Dependency graph as of 21-02-2019](Boostdep-small.png)
 
+
+### WARNING: This project is still very much in flux (alpha version), so expect the Readme to be out of sync with the code and occasionally broken commits.
+
 ## Basic Usage
 - First, you need a recursive copy of the boost project https://github.com/boostorg/boost
   (i.e. the `libs` sub-folder contains a copy of all boost libraries)
@@ -18,16 +21,15 @@ A tool to visualize the boost dependency graph.
 - The color coding of the nodes refers to their cmake status
   - Green: The library has a CMakeLists.txt file in its root directory
   - Yellow: There is no CMakeLists.txt file in the root, but all dependencies have one
-  - Red: No CMakeLists.txt file present and at least one dependency (direct or indirect) is missing
+  - Red: No CMakeLists.txt file present and at least one dependency (direct or indirect) also doesn't have a cmake file
 
 ### Controls:
   - Left clicking on a node will select it and highlight all connected edges
   - Right clkicking on a node will toggle its cmake status and update the rest of the graph accordingly
   - You can move nodes around via drag and drop
   - You can zoom in and out via mouse wheel
-  - You can scan a new directory by hitting space
-  - hit space to pause/continue the auto movement of the nodes
-  - hit enter to rerun the analysis
+  - Hit space to pause/continue the auto movement of the nodes
+  - Hit enter to rerun the analysis
 
 ## Supported Platforms and Dependencies:
 - The code should be portable c++ code, but so far, development and testing is only happening on VS2017.
