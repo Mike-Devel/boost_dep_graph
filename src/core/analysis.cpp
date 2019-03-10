@@ -160,6 +160,7 @@ void update_transitive_dependencies( modules_data& modules )
 			}
 			module.all_deps.merge( new_deps );
 		}
+		module.all_deps.erase( &module );
 	}
 
 	// update reverse dependencies
