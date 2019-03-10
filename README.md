@@ -1,7 +1,7 @@
 # BoostDepGraph
 A tool to visualize the boost dependency graph.
 
-![Dependency graph as of 21-02-2019](Boostdep-small.png)
+![Dependency graph as of 21-02-2019](Boostdep.png)
 
 
 ### WARNING: This project is still very much in flux (alpha version), so expect the Readme to be out of sync with the code and occasionally broken commits.
