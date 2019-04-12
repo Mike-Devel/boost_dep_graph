@@ -3,6 +3,7 @@
 
 #include <core/ModuleInfo.hpp>
 #include <core/analysis.hpp>
+#include <core/boostdep.hpp>
 
 #include <QApplication>
 #include <QFileDialog>
@@ -78,6 +79,8 @@ int main( int argc, char** argv )
 	auto rescan = [&modules, &graph_widget] {
 
 		auto boost_root = determine_boost_root();
+		const auto files
+			= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
 
 		bool    ok = false;
 		QString text
@@ -86,10 +89,9 @@ int main( int argc, char** argv )
 			exit( 1 );
 		}
 		if( text.isEmpty() || text == "none" ) {
-			modules = generate_module_list( boost_root, filter );
+			modules = generate_module_list( files, boost_root, filter );
 		} else {
-			modules = generate_module_list( boost_root, text.toStdString(), filter );
-			// modules = generate_file_list( boost_root, "serialization", filter );
+			modules = generate_module_list( files, boost_root, text.toStdString(), filter );
 		}
 
 		auto cs = cycles( modules );
