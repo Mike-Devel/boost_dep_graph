@@ -162,6 +162,7 @@ void update_transitive_dependencies( modules_data& modules )
 			}
 			module.all_deps.merge( new_deps );
 		}
+		// erase module itself from dependency list - most of the time we are not interested in that
 		module.all_deps.erase( &module );
 	}
 
@@ -258,6 +259,7 @@ std::vector<std::vector<std::string>> cycles( const modules_data& modules )
 		);
 
 		if( !buffer.empty() ) {
+			buffer.insert( &info );
 			cycle_sets.insert( buffer );
 		}
 		buffer.clear();
