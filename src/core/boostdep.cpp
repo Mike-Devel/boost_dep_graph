@@ -251,23 +251,17 @@ scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sou
 //########################################## analysis ########################################################
 
 namespace {
-std::map<std::string, FileInfo> make_file_map( std::vector<FileInfo> files )
-{
-	std::map<std::string, FileInfo> file_map;
-	for( auto&& f : files ) {
-		file_map.emplace( f.name, std::move( f ) );
-	}
-	return file_map;
-}
 
-auto filter_file_map( const std::map<std::string, FileInfo>& file_map, std::string root_module )
-	-> std::map<std::string, FileInfo>
+constexpr auto less_by_name = []( const auto& l, const auto& r ) { return l.name < r.name; };
+
+auto filter_files( std::vector<FileInfo> files, std::string root_module ) -> std::vector<FileInfo>
 {
-	// file_name -> file_info
+	std::sort( files.begin(), files.end(), less_by_name );
+
 	std::set<std::string> unprocessed_files;
-	for( auto& [name, info] : file_map ) {
-		if( info.module_name == root_module ) {
-			unprocessed_files.insert( name );
+	for( auto& f : files ) {
+		if( f.module_name == root_module ) {
+			unprocessed_files.insert( f.name );
 		}
 	}
 
@@ -276,31 +270,42 @@ auto filter_file_map( const std::map<std::string, FileInfo>& file_map, std::stri
 	while( unprocessed_files.size() != 0 ) {
 
 		std::set<std::string> new_unprocessed_files;
+
 		for( const auto& file : unprocessed_files ) {
 			if( filtered_file_map.count( file ) == 0 ) {
-				const auto& inc = file_map.at( file );
 
-				filtered_file_map[file] = inc;
-				new_unprocessed_files.insert( inc.included_files.begin(), inc.included_files.end() );
+				const auto& it = std::lower_bound( files.begin(), files.end(), FileInfo{file}, less_by_name );
+				if( it != files.end() && it->name == file ) {
+					filtered_file_map[file] = *it;
+					new_unprocessed_files.insert( it->included_files.begin(), it->included_files.end() );
+				}
 			}
 		}
 		std::swap( new_unprocessed_files, unprocessed_files );
 	}
 
-	return filtered_file_map;
+	std::vector<FileInfo> ret;
+	for( auto& [name, info] : filtered_file_map ) {
+		ret.push_back( info );
+	}
+
+	return ret;
 }
 
-auto file_map_to_module_dep_map( const std::map<std::string, FileInfo>& files )
-	-> std::map<std::string, std::set<std::string>>
+auto make_module_dep_map( std::vector<FileInfo> files ) -> std::map<std::string, std::set<std::string>>
 {
+	std::sort( files.begin(), files.end(), less_by_name );
+
 	std::map<std::string, std::set<std::string>> module_dependencies;
-	for( auto& [name, info] : files ) {
-		auto& m = module_dependencies[info.module_name];
-		for( auto& d : info.included_files ) {
-			try {
-				m.insert( files.at( d ).module_name );
-			} catch( const std::exception& ) {
-				std::cout << "unknown file  included from " << name << " \t: " << d << std::endl;
+	for( auto& f : files ) {
+		auto& m = module_dependencies[f.module_name];
+		for( const auto& d : f.included_files ) {
+			const FileInfo tmp{d};
+			const auto     it = std::lower_bound( files.begin(), files.end(), tmp, less_by_name );
+			if( it != files.end() && it->name == d ) {
+				m.insert( it->module_name );
+			} else {
+				std::cout << "unknown file  included from " << f.name << " \t: " << d << std::endl;
 			}
 		}
 	}
@@ -308,7 +313,7 @@ auto file_map_to_module_dep_map( const std::map<std::string, FileInfo>& files )
 }
 
 // tanslate internal format into the API format
-DependencyInfo to_default_fomrat( std::map<std::string, std::set<std::string>>&& in )
+DependencyInfo to_default_format( std::map<std::string, std::set<std::string>>&& in )
 {
 	DependencyInfo ret;
 	for( auto& m : in ) {
@@ -318,55 +323,35 @@ DependencyInfo to_default_fomrat( std::map<std::string, std::set<std::string>>&&
 	return ret;
 }
 
-DependencyInfo to_default_fomrat( std::map<std::string, FileInfo>&& in )
-{
-	DependencyInfo ret;
-	for( auto& e : in ) {
-		ret[e.first] = std::move( e.second.included_files );
-	}
-	return ret;
-}
-
 } // namespace
 
 DependencyInfo build_module_dependency_map( const std::vector<FileInfo>& files )
 {
-	// file -> FileInfo
-	const auto file_map = make_file_map( files );
-
-	auto module_dependencies = file_map_to_module_dep_map( file_map );
-
-	return to_default_fomrat( std::move( module_dependencies ) );
+	return to_default_format( make_module_dep_map( files ) );
 }
 
 DependencyInfo build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
 {
-	const auto filtered_map = filter_file_map( make_file_map( files ), root_module );
-
-	auto module_dependencies = file_map_to_module_dep_map( filtered_map );
-
-	return to_default_fomrat( std::move( module_dependencies ) );
+	return to_default_format( make_module_dep_map( filter_files( files, root_module ) ) );
 }
 
 DependencyInfo build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
 {
-	auto filtered_map = filter_file_map( make_file_map( files ), root_module );
+	DependencyInfo ret;
 
 	// Add a fake file representing the root module
-	auto& root_node       = filtered_map[root_module];
-	root_node.name        = root_module;
-	root_node.module_name = root_module;
-	root_node.category    = FileCategory::Unknown;
+	auto& root_node = ret[root_module];
 
-	for( auto& file : files ) {
+	for( auto& file : filter_files( files, root_module ) ) {
 		if( file.module_name == root_module ) {
-			root_node.included_files.push_back( file.name );
+			root_node.push_back( file.name );
 		}
+		ret[file.name] = file.included_files;
 	}
 
-	std::sort( root_node.included_files.begin(), root_node.included_files.end() );
+	std::sort( root_node.begin(), root_node.end() );
 
-	return to_default_fomrat( std::move( filtered_map ) );
+	return ret;
 }
 
 } // namespace mdev::boostdep
