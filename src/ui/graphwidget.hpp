@@ -30,6 +30,8 @@ public slots:
 signals:
 	void reload_requested();
 	void reprint_stats_requested();
+	void reset_requested();
+	void cycle_dedection_requested();
 
 protected:
 	void keyPressEvent( QKeyEvent* event ) override;

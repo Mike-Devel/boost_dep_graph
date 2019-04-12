@@ -148,6 +148,15 @@ void GraphWidget::keyPressEvent( QKeyEvent* event )
 			emit( reload_requested() );
 			break;
 		}
+		case Qt::Key_R: {
+			clear();
+			emit( reset_requested() );
+			break;
+		}
+		case Qt::Key_C: {
+			emit( cycle_dedection_requested() );
+			break;
+		}
 		case Qt::Key_P: {
 
 			QPainter pngPainter;

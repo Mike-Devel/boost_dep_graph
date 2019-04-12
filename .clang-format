@@ -28,7 +28,7 @@ NamespaceIndentation: None
 SortIncludes: 'true'
 SpaceAfterTemplateKeyword: 'false'
 SpaceBeforeAssignmentOperators: 'true'
-#SpaceBeforeCpp11BracedList: 'false'
+SpaceBeforeCpp11BracedList: 'false'
 SpaceBeforeParens: Never
 SpaceInEmptyParentheses: 'false'
 SpacesInAngles: 'false'

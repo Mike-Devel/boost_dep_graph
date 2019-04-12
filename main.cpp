@@ -5,11 +5,17 @@
 #include <core/analysis.hpp>
 #include <core/boostdep.hpp>
 
+#include <QAbstractItemModel>
+#include <QPushButton>
+#include <QTableView>
+
 #include <QApplication>
 #include <QFileDialog>
+#include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMainWindow>
 #include <QProcessEnvironment>
+#include <QSplitter>
 #include <QStandardPaths>
 #include <QString>
 
@@ -25,7 +31,6 @@
 
 using namespace mdev;
 using namespace mdev::bdg;
-
 
 // This is the list of boost libraries that is ignored in the following process
 
@@ -62,26 +67,28 @@ std::filesystem::path determine_boost_root()
 
 const std::vector<std::string> filter; // Add modules that should be ignored
 
+struct DisplayFileList : QAbstractItemModel {
+	DisplayFileList( const modules_data* ) {}
+};
+
 int main( int argc, char** argv )
 {
 	QApplication app( argc, argv );
-	QMainWindow  main_window;
 
 	auto graph_widget = new gui::GraphWidget();
 
+	// This data is referenced from multiple places in the UI, so it has to stay alive as long as the app is running
+	std::vector<boostdep::FileInfo> file_infos;
+	modules_data                    modules;
+	std::filesystem::path           boost_root;
 
-	main_window.setCentralWidget( graph_widget );
-
-		// This data is referenced from multiple places in the UI, so it has to stay alive as long as the app is running
-	modules_data modules;
-
-
-	auto rescan = [&modules, &graph_widget] {
-
-		auto boost_root = determine_boost_root();
-		const auto files
+	auto rescan = [&file_infos,&boost_root]() {
+		boost_root = determine_boost_root();
+		file_infos
 			= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+	};
 
+	auto redo_analysis = [&modules, &graph_widget, &file_infos, &boost_root] {
 		bool    ok = false;
 		QString text
 			= QInputDialog::getText( nullptr, "Select root library", "RootLib:", QLineEdit::Normal, "none", &ok );
@@ -89,29 +96,54 @@ int main( int argc, char** argv )
 			exit( 1 );
 		}
 		if( text.isEmpty() || text == "none" ) {
-			modules = generate_module_list( files, boost_root, filter );
+			modules = generate_module_list( file_infos, boost_root, filter );
 		} else {
-			modules = generate_module_list( files, boost_root, text.toStdString(), filter );
+			modules = generate_module_list( file_infos, boost_root, text.toStdString(), filter );
 		}
+		graph_widget->set_data( &modules );
+	};
 
+
+	auto print_stats = [&] { print_cmake_stats( modules ); };
+	auto print_cycles = [&] {
 		auto cs = cycles( modules );
 		std::cout << "Cycles:\n";
 		for( auto& c : cs ) {
 			for( auto& e : c ) {
 				std::cout << e << " ";
 			}
-			std::cout << std::endl;
+			std::cout << '\n';
 		}
-		print_cmake_stats( modules );
-		graph_widget->set_data( &modules );
+		std::cout << std::endl;
+	};
+	auto rescanfull = [&] {
+		rescan();
+		redo_analysis();
+		print_stats();
+		print_cycles();
 	};
 
-	auto print_stats = [&] { print_cmake_stats( modules ); };
+	rescanfull();
 
-	rescan();
+	// DisplayFileList file_data();
 
-	QObject::connect( graph_widget, &gui::GraphWidget::reload_requested, rescan );
+	QMainWindow main_window;
+
+	QTableView*  listview = new QTableView();
+	QPushButton* button2  = new QPushButton( "Two" );
+
+	QSplitter* layout = new QSplitter();
+	main_window.setCentralWidget( new QWidget() );
+
+	layout->addWidget( graph_widget );
+	layout->addWidget( listview );
+
+	main_window.setCentralWidget( layout );
+
+	QObject::connect( graph_widget, &gui::GraphWidget::reload_requested, rescanfull );
+	QObject::connect( graph_widget, &gui::GraphWidget::reset_requested, redo_analysis );
 	QObject::connect( graph_widget, &gui::GraphWidget::reprint_stats_requested, print_stats );
+	QObject::connect( graph_widget, &gui::GraphWidget::cycle_dedection_requested, print_cycles );
 	main_window.show();
 
 	return app.exec();
