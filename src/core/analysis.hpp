@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -21,11 +22,7 @@ modules_data generate_file_list( const std::vector<boostdep::FileInfo>& files,
 
 modules_data generate_module_list( const std::vector<boostdep::FileInfo>& files,
 								   std::filesystem::path                  boost_root,
-								   std::string                            root_module,
-								   const std::vector<std::string>&        exclude = {} );
-
-modules_data generate_module_list( const std::vector<boostdep::FileInfo>& files,
-								   std::filesystem::path                  boost_root,
+								   const std::optional<std::string>&      root_module,
 								   const std::vector<std::string>&        exclude = {} );
 
 void update_derived_information( modules_data& modules );

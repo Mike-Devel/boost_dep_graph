@@ -1,23 +1,22 @@
 
+#include <ui/FileListDisplay.hpp>
+#include <ui/control.hpp>
 #include <ui/graphwidget.hpp>
 
 #include <core/ModuleInfo.hpp>
 #include <core/analysis.hpp>
 #include <core/boostdep.hpp>
 
-#include <QAbstractItemModel>
-#include <QPushButton>
+#include <QListView>
 #include <QTableView>
+#include <QTreeView>
+#include <QPushButton>
 
 #include <QApplication>
-#include <QFileDialog>
 #include <QHBoxLayout>
-#include <QInputDialog>
 #include <QMainWindow>
 #include <QProcessEnvironment>
 #include <QSplitter>
-#include <QStandardPaths>
-#include <QString>
 
 #include <algorithm>
 #include <cassert>
@@ -26,6 +25,7 @@
 #include <iostream>
 #include <map>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,43 +33,8 @@ using namespace mdev;
 using namespace mdev::bdg;
 
 // This is the list of boost libraries that is ignored in the following process
-
-std::ostream& operator<<( std::ostream& stream, const QString& str )
-{
-	stream << str.toStdString();
-	return stream;
-}
-
-std::filesystem::path determine_boost_root()
-{
-
-	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-
-	auto default_folder = env.value( "BOOST_ROOT", "" );
-
-	if( default_folder.isEmpty() ) {
-		std::cout << "No BOOST_ROOT environment variable found" << std::endl;
-		default_folder = QStandardPaths::standardLocations( QStandardPaths::HomeLocation ).first();
-	}
-
-	std::filesystem::path boost_root
-		= QFileDialog::getExistingDirectory( nullptr, "Select boost root directory", default_folder ).toStdString();
-
-	if( !std::filesystem::exists( boost_root / "Jamroot" ) ) {
-		std::cerr << "Could not detect Jamroot file in selected folder :" << boost_root << std::endl;
-		std::exit( 1 );
-	} else {
-		std::cout << "Selected boost installation: " << boost_root << std::endl;
-	}
-
-	return boost_root;
-}
-
-const std::vector<std::string> filter; // Add modules that should be ignored
-
-struct DisplayFileList : QAbstractItemModel {
-	DisplayFileList( const modules_data* ) {}
-};
+const std::vector<std::string> filter{}; // Add modules that should be ignored
+// const std::vector<std::string> filter{"serialization"}; // Add modules that should be ignored
 
 int main( int argc, char** argv )
 {
@@ -82,39 +47,29 @@ int main( int argc, char** argv )
 	modules_data                    modules;
 	std::filesystem::path           boost_root;
 
-	auto rescan = [&file_infos,&boost_root]() {
+	auto rescan = [&file_infos, &boost_root]() {
 		boost_root = determine_boost_root();
 		file_infos
 			= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
 	};
 
 	auto redo_analysis = [&modules, &graph_widget, &file_infos, &boost_root] {
-		bool    ok = false;
-		QString text
-			= QInputDialog::getText( nullptr, "Select root library", "RootLib:", QLineEdit::Normal, "none", &ok );
-		if( !ok ) {
-			exit( 1 );
-		}
-		if( text.isEmpty() || text == "none" ) {
-			modules = generate_module_list( file_infos, boost_root, filter );
-		} else {
-			modules = generate_module_list( file_infos, boost_root, text.toStdString(), filter );
-		}
+		auto root_lib = get_root_library_name();
+		modules       = generate_module_list( file_infos, boost_root, root_lib, filter );
 		graph_widget->set_data( &modules );
 	};
 
-
-	auto print_stats = [&] { print_cmake_stats( modules ); };
+	auto print_stats  = [&] { print_cmake_stats( modules ); };
 	auto print_cycles = [&] {
-		auto cs = cycles( modules );
-		std::cout << "Cycles:\n";
-		for( auto& c : cs ) {
+		std::cout << "\n##############################\n"
+					 "Dedected Cycles:\n\n";
+		for( auto& c : cycles( modules ) ) {
 			for( auto& e : c ) {
 				std::cout << e << " ";
 			}
 			std::cout << '\n';
 		}
-		std::cout << std::endl;
+		std::cout << "\n##############################\n" << std::endl;
 	};
 	auto rescanfull = [&] {
 		rescan();
@@ -125,18 +80,22 @@ int main( int argc, char** argv )
 
 	rescanfull();
 
-	// DisplayFileList file_data();
-
 	QMainWindow main_window;
 
-	QTableView*  listview = new QTableView();
-	QPushButton* button2  = new QPushButton( "Two" );
+	DisplayFileList     list( &file_infos );
+	TreeDisplayFileList treelist( &file_infos );
+
+	QTableView*        tableview = new QTableView();
+	QAbstractItemView* treeview  = new QTreeView();
+	// QListView*   listview = new QListView();
+	tableview->setModel( &list );
+	treeview->setModel( &treelist );
+	// listview->setModelColumn( 1 );
 
 	QSplitter* layout = new QSplitter();
-	main_window.setCentralWidget( new QWidget() );
-
 	layout->addWidget( graph_widget );
-	layout->addWidget( listview );
+	layout->addWidget( tableview );
+	layout->addWidget( treeview );
 
 	main_window.setCentralWidget( layout );
 
@@ -146,5 +105,6 @@ int main( int argc, char** argv )
 	QObject::connect( graph_widget, &gui::GraphWidget::cycle_dedection_requested, print_cycles );
 	main_window.show();
 
+	// list.update();
 	return app.exec();
 }

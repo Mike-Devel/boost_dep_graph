@@ -126,19 +126,16 @@ modules_data generate_file_list( const std::vector<boostdep::FileInfo>& files,
 
 modules_data generate_module_list( const std::vector<boostdep::FileInfo>& files,
 								   std::filesystem::path                  boost_root,
-								   std::string                            root_module,
+								   const std::optional<std::string>&      root_module,
 								   const std::vector<std::string>&        exclude )
 {
-	const auto dependency_map = boostdep::build_filtered_module_dependency_map( files, root_module );
-	return process_dpendency_map( dependency_map, boost_root, exclude );
-}
-
-modules_data generate_module_list( const std::vector<boostdep::FileInfo>& files,
-								   std::filesystem::path                  boost_root,
-								   const std::vector<std::string>&        exclude )
-{
-	const auto dependency_map = boostdep::build_module_dependency_map( files );
-	return process_dpendency_map( dependency_map, boost_root, exclude );
+	if( root_module ) {
+		const auto dependency_map = boostdep::build_filtered_module_dependency_map( files, root_module.value() );
+		return process_dpendency_map( dependency_map, boost_root, exclude );
+	} else {
+		const auto dependency_map = boostdep::build_module_dependency_map( files );
+		return process_dpendency_map( dependency_map, boost_root, exclude );
+	}
 }
 
 //########## #
