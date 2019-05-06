@@ -8,9 +8,9 @@
 #include <core/boostdep.hpp>
 
 #include <QListView>
+#include <QPushButton>
 #include <QTableView>
 #include <QTreeView>
-#include <QPushButton>
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -33,8 +33,21 @@ using namespace mdev;
 using namespace mdev::bdg;
 
 // This is the list of boost libraries that is ignored in the following process
-const std::vector<std::string> filter{}; // Add modules that should be ignored
-// const std::vector<std::string> filter{"serialization"}; // Add modules that should be ignored
+// TODO: make this changeable at runtime
+[[maybe_unused]] const std::vector<std::string> filter_wo_serialization{
+	"serialization"};
+
+[[maybe_unused]] const std::vector<std::string> filter_cpp_20{
+	"function",     "assert",    "static_assert", "optional", "variant",
+	"mpl",          "smart_ptr", "array",         "tuple",    "iterator",
+	"type_traits",  "move",      "atomic",        "bind",     "lambda",
+	"chrono",       "date_time", "random",        "thread",   "throw_exception",
+	"preprocessor", "detail",    "typeof",        "any",      "type_index",
+	"align",        "ratio",     "compatibility", "foreach",  "assign",
+	"range",        "system",    "regex",         "variant2", "coroutine",
+	"coroutine2",   "filesystem"};
+
+const std::vector<std::string> filter; //= filter_cpp_20; // modules that should be ignored
 
 int main( int argc, char** argv )
 {
