@@ -34,8 +34,7 @@ using namespace mdev::bdg;
 
 // This is the list of boost libraries that is ignored in the following process
 // TODO: make this changeable at runtime
-[[maybe_unused]] const std::vector<std::string> filter_wo_serialization{
-	"serialization"};
+[[maybe_unused]] const std::vector<std::string> filter_wo_serialization{"serialization"};
 
 [[maybe_unused]] const std::vector<std::string> filter_cpp_20{
 	"function",     "assert",    "static_assert", "optional", "variant",
@@ -47,7 +46,7 @@ using namespace mdev::bdg;
 	"range",        "system",    "regex",         "variant2", "coroutine",
 	"coroutine2",   "filesystem"};
 
-const std::vector<std::string> filter; //= filter_cpp_20; // modules that should be ignored
+const std::vector<std::string> filter; //= filter_wo_serialization; //= filter_cpp_20; // modules that should be ignored
 
 int main( int argc, char** argv )
 {
