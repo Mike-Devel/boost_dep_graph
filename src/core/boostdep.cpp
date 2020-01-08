@@ -123,6 +123,28 @@ std::string_view get_included_file_from_line( std::string_view str )
 	return strip_quotes( str ); // str=boost/foo/bar/baz.h
 }
 
+#if 0 // TODO implement logic to ignore all includes that are only active if modern features are missing
+std::string_view get_included_file_from_line( std::string_view str, bool& ignore )
+{
+	//                                   str=   #  include <boost/foo/bar/baz.h>
+	str = trim_left_with( str, '#' ); // str=include <boost/foo/bar/baz.hpp>
+	if( str.empty() ) return {};
+	str = trim_left( str ); // str=include <boost/foo/bar/baz.hpp>
+	if( !trim_prefix( trim_left( trim_prefix( str, "ifdef" ) ), "BOOST_NO" ).empty() ) {
+		ignore = true;
+	}
+	if( !trim_prefix( str, "endi" ).empty() || !trim_prefix( str, "els" ).empty() ) {
+		ignore = false;
+	}
+	str = trim_prefix( str, "include" ); // str= <boost/foo/bar/baz.hpp>
+	str = trim_left( str );              // str=<boost/foo/bar/baz.hpp>
+
+	if( str.size() < 13 ) return {}; // this can't be a boost header if only 13 chars remain <boost/a.hpp>
+
+	return strip_quotes( str ); // str=boost/foo/bar/baz.h
+}
+#endif
+
 std::vector<String_t> get_included_boost_headers( fs::path const& file )
 {
 	std::vector<String_t> headers;

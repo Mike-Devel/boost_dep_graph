@@ -331,7 +331,7 @@ void print_cmake_stats( const modules_data& modules )
 			std::cout << m->all_rev_deps.size() << "/" << ncdpcnt << "/" << blocked_cnt << "\t" << m->name << "\n";
 		}
 	}
-	std::cout << "Modules without a cmake file: " << count << std::endl;
+	std::cout << "Modules without a cmake file: " << count << "/ " << modules_sorted_by_dep_count.size() << std::endl;
 }
 
 } // namespace bdg

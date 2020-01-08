@@ -90,7 +90,12 @@ int main( int argc, char** argv )
 
 	auto redo_analysis = [&modules, &graph_widget, &file_infos, &boost_root] {
 		auto root_lib = get_root_library_name();
-		modules       = generate_module_list( file_infos, boost_root, root_lib, filter );
+		auto start    = system_clock::now();
+		//for( int i = 0; i < 100; ++i ) {
+			modules       = generate_module_list( file_infos, boost_root, root_lib, filter );
+		//}
+		auto end      = system_clock::now();
+		fmt::print( "\nDuration was: {}ms\n\n", ( end - start ) / 1ms );
 		graph_widget->set_data( &modules );
 	};
 
@@ -104,8 +109,11 @@ int main( int argc, char** argv )
 			fmt::join( cycles( modules ), "\n" ) );
 	};
 	auto rescanfull = [&] {
+
 		rescan();
+
 		redo_analysis();
+
 		print_stats();
 		print_cycles();
 	};
@@ -126,8 +134,8 @@ int main( int argc, char** argv )
 
 	QSplitter* layout = new QSplitter();
 	layout->addWidget( graph_widget );
-	layout->addWidget( tableview );
-	layout->addWidget( treeview );
+	//layout->addWidget( tableview );
+	//layout->addWidget( treeview );
 
 	main_window.setCentralWidget( layout );
 
