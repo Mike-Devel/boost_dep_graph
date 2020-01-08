@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <string>
 
 namespace mdev {
 
@@ -61,6 +62,13 @@ template<class T, class C>
 std::vector<T> to_vector( C container )
 {
 	return std::vector<T>( std::make_move_iterator( container.begin() ), std::make_move_iterator( container.end() ) );
+}
+
+using String_t = std::string;
+template<class... ARGS>
+String_t str_concat( const ARGS& ... args)
+{
+	return (args + ...);
 }
 
 } // namespace mdev

@@ -36,9 +36,9 @@ namespace {
 
 //################### Detect Modules #####################################
 
-auto find_modules( fs::path const& path, const std::string& prefix = "" ) -> std::map<std::string, fs::path>
+auto find_modules( fs::path const& path, String_t prefix = "" ) -> std::map<String_t, fs::path>
 {
-	std::map<std::string, fs::path> ret;
+	std::map<String_t, fs::path> ret;
 
 	for( const auto& entry : fs::directory_iterator( path ) ) {
 		if( !entry.is_directory() ) {
@@ -46,10 +46,10 @@ auto find_modules( fs::path const& path, const std::string& prefix = "" ) -> std
 		}
 
 		fs::path    mpath = entry.path();
-		std::string mname = std::string( prefix + mpath.filename().string() );
+		auto mname = str_concat( prefix , mpath.filename().string() );
 
 		if( fs::exists( mpath / "sublibs" ) ) {
-			auto r = find_modules( mpath, mname + "~" );
+			auto r = find_modules( mpath,str_concat( mname , "~") );
 			ret.merge( r );
 		}
 
@@ -123,9 +123,9 @@ std::string_view get_included_file_from_line( std::string_view str )
 	return strip_quotes( str ); // str=boost/foo/bar/baz.h
 }
 
-std::vector<std::string> get_included_boost_headers( fs::path const& file )
+std::vector<String_t> get_included_boost_headers( fs::path const& file )
 {
-	std::vector<std::string> headers;
+	std::vector<String_t> headers;
 	std::ifstream            is( file );
 
 	// Note: std::getline is the major performance bottleneck during scanning
@@ -133,13 +133,13 @@ std::vector<std::string> get_included_boost_headers( fs::path const& file )
 	// using fopen + fgets + fixed buffer, seems to reduce scan time by ~10-20%
 	// on my windows machine (2.7s vs 3s)
 	// I prefer the simpler c++ code for now
+
 	for( std::string line; std::getline( is, line ); ) {
 		if( line.size() < 20 ) {
 			continue; // this can't be an include of a boost library
 		}
 
 		auto str = get_included_file_from_line( line );
-
 		if( str == std::string_view{} || str.substr( 0, 6 ) != "boost/" ) {
 			continue;
 		}
@@ -166,7 +166,7 @@ scan_files_in_directory( fs::path const& dir, fs::path const& prefix, FileInfo b
 			FileInfo f = base_template;
 
 			// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
-			f.name           = entry.path().generic_string().substr( prefix_size + 1 );
+			f.name           = String_t{entry.path().generic_string()}.substr( prefix_size + 1 );
 			f.included_files = get_included_boost_headers( entry.path() );
 
 			discovered_files.push_back( std::move( f ) );
@@ -176,12 +176,12 @@ scan_files_in_directory( fs::path const& dir, fs::path const& prefix, FileInfo b
 }
 
 std::vector<FileInfo> scan_module_files( const fs::path&   module_root,
-										 const std::string module_name,
+										 std::string_view  module_name,
 										 TrackSources      track_sources,
 										 TrackTests        track_tests )
 {
 	FileInfo base_template;
-	base_template.module_name = module_name;
+	base_template.module_name = String_t(module_name);
 
 	std::vector<FileInfo> ret;
 	{
@@ -254,11 +254,11 @@ namespace {
 
 constexpr auto less_by_name = []( const auto& l, const auto& r ) { return l.name < r.name; };
 
-auto filter_files( std::vector<FileInfo> files, std::string root_module ) -> std::vector<FileInfo>
+auto filter_files( std::vector<FileInfo> files, std::string_view root_module ) -> std::vector<FileInfo>
 {
 	std::sort( files.begin(), files.end(), less_by_name );
 
-	std::set<std::string> unprocessed_files;
+	std::set<String_t> unprocessed_files;
 	for( auto& f : files ) {
 		if( f.module_name == root_module ) {
 			unprocessed_files.insert( f.name );
@@ -266,10 +266,10 @@ auto filter_files( std::vector<FileInfo> files, std::string root_module ) -> std
 	}
 
 	// file_name -> file_info
-	std::map<std::string, FileInfo> filtered_file_map;
+	std::map<String_t, FileInfo> filtered_file_map;
 	while( unprocessed_files.size() != 0 ) {
 
-		std::set<std::string> new_unprocessed_files;
+		std::set<String_t> new_unprocessed_files;
 
 		for( const auto& file : unprocessed_files ) {
 			if( filtered_file_map.count( file ) == 0 ) {
@@ -292,11 +292,11 @@ auto filter_files( std::vector<FileInfo> files, std::string root_module ) -> std
 	return ret;
 }
 
-auto make_module_dep_map( std::vector<FileInfo> files ) -> std::map<std::string, std::set<std::string>>
+auto make_module_dep_map( std::vector<FileInfo> files ) -> std::map<String_t, std::set<String_t>>
 {
 	std::sort( files.begin(), files.end(), less_by_name );
 
-	std::map<std::string, std::set<std::string>> module_dependencies;
+	std::map<String_t, std::set<String_t>> module_dependencies;
 	for( auto& f : files ) {
 		auto& m = module_dependencies[f.module_name];
 		for( const auto& d : f.included_files ) {
@@ -313,12 +313,12 @@ auto make_module_dep_map( std::vector<FileInfo> files ) -> std::map<std::string,
 }
 
 // tanslate internal format into the API format
-DependencyInfo to_default_format( std::map<std::string, std::set<std::string>>&& in )
+DependencyInfo to_default_format( std::map<String_t, std::set<String_t>>&& in )
 {
 	DependencyInfo ret;
 	for( auto& m : in ) {
 		m.second.erase( m.first ); // make sure there is no self-dependency
-		ret[m.first] = mdev::to_vector<std::string>( std::move( m.second ) );
+		ret[m.first] = mdev::to_vector<String_t>( std::move( m.second ) );
 	}
 	return ret;
 }
@@ -330,17 +330,17 @@ DependencyInfo build_module_dependency_map( const std::vector<FileInfo>& files )
 	return to_default_format( make_module_dep_map( files ) );
 }
 
-DependencyInfo build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
+DependencyInfo build_filtered_module_dependency_map( const std::vector<FileInfo>& files, std::string_view root_module )
 {
 	return to_default_format( make_module_dep_map( filter_files( files, root_module ) ) );
 }
 
-DependencyInfo build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string root_module )
+DependencyInfo build_filtered_file_dependency_map( const std::vector<FileInfo>& files, std::string_view root_module )
 {
 	DependencyInfo ret;
 
 	// Add a fake file representing the root module
-	auto& root_node = ret[root_module];
+	auto& root_node = ret[String_t(root_module)];
 
 	for( auto& file : filter_files( files, root_module ) ) {
 		if( file.module_name == root_module ) {

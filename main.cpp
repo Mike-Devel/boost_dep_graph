@@ -34,9 +34,14 @@ using namespace mdev::bdg;
 
 // This is the list of boost libraries that is ignored in the following process
 // TODO: make this changeable at runtime
-[[maybe_unused]] const std::vector<std::string> filter_wo_serialization{"serialization"};
+[[maybe_unused]] const std::vector<String_t> filter_wo_serialization{"serialization"};
 
-[[maybe_unused]] const std::vector<std::string> filter_cpp_20{
+[[maybe_unused]] const std::vector<String_t> filter_cpp_11{
+	"function", "assert", "static_assert", "smart_ptr", "array",  "tuple",  "iterator", "move",
+	"atomic",   "bind",   "lambda",        "chrono",    "random", "thread", "typeof",   "type_index",
+	"align",    "ratio",  "compatibility", "foreach",   "system", "regex",  "mpl"};
+
+[[maybe_unused]] const std::vector<String_t> filter_cpp_20{
 	"function",     "assert",    "static_assert", "optional", "variant",
 	"mpl",          "smart_ptr", "array",         "tuple",    "iterator",
 	"type_traits",  "move",      "atomic",        "bind",     "lambda",
@@ -46,7 +51,20 @@ using namespace mdev::bdg;
 	"range",        "system",    "regex",         "variant2", "coroutine",
 	"coroutine2",   "filesystem"};
 
-const std::vector<std::string> filter; //= filter_wo_serialization; //= filter_cpp_20; // modules that should be ignored
+std::vector<String_t> operator|( std::vector<String_t> left, const std::vector<String_t>& right )
+{
+	left.insert( left.end(), right.begin(), right.end() );
+	return left;
+}
+
+std::vector<String_t> operator|( std::vector<String_t> left, String_t right )
+{
+	left.push_back( std::move( right ) );
+	return left;
+}
+
+const std::vector<String_t> filter;// = filter_cpp_11 | "iterator" | "thread" | "serialization";
+//= filter_wo_serialization; //= filter_cpp_20; // modules that should be ignored
 
 int main( int argc, char** argv )
 {

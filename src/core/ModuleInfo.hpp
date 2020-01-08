@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils.hpp"
+
 #include <map>
 #include <set>
 #include <string>
@@ -9,7 +11,7 @@ namespace mdev::bdg {
 
 struct ModuleInfo {
 
-	std::string           name;
+	String_t              name;
 	bool                  has_cmake = false;
 	std::set<ModuleInfo*> deps;
 	std::set<ModuleInfo*> all_deps;
@@ -23,7 +25,7 @@ struct ModuleInfo {
 	friend bool operator<( const ModuleInfo& l, const ModuleInfo& r ) { return l.name < r.name; }
 };
 
-struct modules_data : std::map<std::string, ModuleInfo> {
+struct modules_data : std::map<String_t, ModuleInfo> {
 };
 
 } // namespace mdev::bdg

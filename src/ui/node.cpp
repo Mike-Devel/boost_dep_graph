@@ -15,7 +15,7 @@
 namespace mdev::bdg::gui {
 
 Node::Node( GraphWidget* graphWidget, ModuleInfo* module, int z_level )
-	: _name( QString::fromStdString( module->name ) )
+	: _name( QString::fromStdString( std::string(module->name) ) )
 	, _graph( graphWidget )
 	, _moduleInfo( module )
 {

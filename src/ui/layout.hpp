@@ -8,7 +8,7 @@
 
 namespace mdev::bdg::gui {
 
-using ModuleLayout = std::map<std::string, QPoint>;
+using ModuleLayout = std::map<String_t, QPoint>;
 
 inline ModuleLayout layout_boost_modules( modules_data& modules, const QRectF area )
 {

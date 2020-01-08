@@ -243,7 +243,7 @@ void GraphWidget::set_data( modules_data* modules )
 
 	auto layout = gui::layout_boost_modules( *modules, this->sceneRect().marginsRemoved( cfg::margins ) );
 
-	std::map<std::string, Node*> module_node_map;
+	std::map<String_t, Node*> module_node_map;
 
 	for( auto& [name, info] : *modules ) {
 		int  z_level          = max_level + 2 - info.level;

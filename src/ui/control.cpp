@@ -36,16 +36,16 @@ std::filesystem::path determine_boost_root()
 		= QFileDialog::getExistingDirectory( nullptr, "Select boost root directory", default_folder ).toStdString();
 
 	if( !std::filesystem::exists( boost_root / "Jamroot" ) ) {
-		std::cerr << "Could not detect Jamroot file in selected folder :" << boost_root << std::endl;
+		std::cout << "Could not detect Jamroot file in selected folder : "<< boost_root << "\n";
 		std::exit( 1 );
 	} else {
-		std::cout << "Selected boost installation: " << boost_root << std::endl;
+		std::cout << "Selected boost installation: " << boost_root << "\n";
 	}
 
 	return boost_root;
 }
 
-std::optional<std::string> get_root_library_name()
+std::optional<String_t> get_root_library_name()
 {
 	bool    ok   = false;
 	QString text = QInputDialog::getText( nullptr, "Select root library", "RootLib:", QLineEdit::Normal, "none", &ok );
@@ -53,7 +53,7 @@ std::optional<std::string> get_root_library_name()
 	if( !ok || text.isEmpty() || text == "none" ) {
 		return {};
 	} else {
-		return text.toStdString();
+		return String_t{text.toStdString()};
 	}
 }
 

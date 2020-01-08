@@ -32,9 +32,9 @@ struct DisplayFileList : QAbstractItemModel {
 		}
 
 		if( index.column() == 0 ) {
-			return QString::fromStdString( _infos->at( index.row() ).module_name );
+			return QString::fromStdString( std::string(_infos->at( index.row() ).module_name) );
 		} else {
-			return QString::fromStdString( _infos->at( index.row() ).name );
+			return QString::fromStdString( std::string(_infos->at( index.row() ).name) );
 		}
 	}
 	std::vector<boostdep::FileInfo> const* _infos;
@@ -124,16 +124,16 @@ struct TreeDisplayFileList : QAbstractItemModel {
 			return {};
 		}
 		if( !is_leaf( index ) ) {
-			return QString::fromStdString( get_internal_file_info_ptr( index )->module_name );
+			return QString::fromStdString( static_cast<std::string>(get_internal_file_info_ptr( index )->module_name) );
 		}
 
 		auto* parent_file = get_internal_file_info_ptr( index.parent() );
 		int   row         = ( parent_file - _infos->data() ) + index.row();
 
 		if( index.column() == 0 ) {
-			return QString::fromStdString( _infos->at( row ).module_name );
+			return QString::fromStdString( static_cast<std::string>(_infos->at( row ).module_name) );
 		} else {
-			return QString::fromStdString( _infos->at( row ).name );
+			return QString::fromStdString( static_cast<std::string>(_infos->at( row ).name) );
 		}
 	}
 

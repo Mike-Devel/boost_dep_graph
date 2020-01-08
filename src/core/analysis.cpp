@@ -10,9 +10,11 @@
 #include <iostream>
 #include <iterator>
 
+namespace mdev {
+
 namespace {
 
-const std::map<std::string, std::string> manual_assignments{
+const std::map<String_t, String_t> manual_assignments{
 	{"boost/date_time/posix_time/time_serialize.hpp", "date_time~serialize"},
 	{"boost/date_time/gregorian/greg_serialize.hpp", "date_time~serialize"},
 	{"boost/dynamic_bitset/serialization.hpp", "dynamic_bitset~serialize"},
@@ -22,7 +24,7 @@ const std::map<std::string, std::string> manual_assignments{
 	{"boost/units/io.hpp", "units~io"},
 	{"boost/uuid/uuid_serialize.hpp", "uuid~serialize"}};
 
-void update_info( std::vector<mdev::boostdep::FileInfo>& files, const std::map<std::string, std::string> updates )
+void update_info( std::vector<boostdep::FileInfo>& files, const std::map<String_t, String_t> updates )
 {
 	for( auto& f : files ) {
 		auto it = updates.find( f.name );
@@ -30,21 +32,21 @@ void update_info( std::vector<mdev::boostdep::FileInfo>& files, const std::map<s
 			f.module_name = it->second;
 		}
 		// if( f.module_name == "spirit" ) {
-		//	if( f.name.find( "classic" ) != std::string::npos ) {
+		//	if( f.name.find( "classic" ) != String_t::npos ) {
 		//		f.module_name = "spirit~classic";
-		//	} /*else if( f.name.find( "x3" ) != std::string::npos ) {
+		//	} /*else if( f.name.find( "x3" ) != String_t::npos ) {
 		//		f.module_name = "spirit~x3";
-		//	} else if( f.name.find( "qi" ) != std::string::npos ) {
+		//	} else if( f.name.find( "qi" ) != String_t::npos ) {
 		//		f.module_name = "spirit~qi";
-		//	} else if( f.name.find( "karma" ) != std::string::npos ) {
+		//	} else if( f.name.find( "karma" ) != String_t::npos ) {
 		//		f.module_name = "spirit~karma";
-		//	} else if( f.name.find( "lex" ) != std::string::npos ) {
+		//	} else if( f.name.find( "lex" ) != String_t::npos ) {
 		//		f.module_name = "spirit~lex";
-		//	} else if( f.name.find( "support" ) != std::string::npos ) {
+		//	} else if( f.name.find( "support" ) != String_t::npos ) {
 		//		f.module_name = "spirit~support";
-		//	} else if( f.name.find( "version" ) != std::string::npos ) {
+		//	} else if( f.name.find( "version" ) != String_t::npos ) {
 		//		f.module_name = "spirit~version";
-		//	} else if( f.name.find( "phoenix" ) != std::string::npos ) {
+		//	} else if( f.name.find( "phoenix" ) != String_t::npos ) {
 		//		f.module_name = "spirit~phoenix";
 		//	} else {
 		//		std::cout << f.name << std::endl;
@@ -53,7 +55,7 @@ void update_info( std::vector<mdev::boostdep::FileInfo>& files, const std::map<s
 	}
 }
 
-void set_direct_deps( mdev::bdg::modules_data& modules, mdev::boostdep::DependencyInfo deps )
+void set_direct_deps( bdg::modules_data& modules, boostdep::DependencyInfo deps )
 {
 	for( auto& [name1, info1] : modules ) {
 		for( auto& [name2, info2] : modules ) {
@@ -77,31 +79,31 @@ T filter( const T& data, const F& exclude )
 	return ret;
 }
 
-std::string replace( const std::string& src, char match, char replacement )
+std::string replace( const String_t& src, char match, char replacement )
 {
-	std::string ret = src;
+	std::string ret{src};
 	std::replace( ret.begin(), ret.end(), match, replacement );
 	return ret;
 }
 
-mdev::bdg::modules_data process_dpendency_map( const mdev::boostdep::DependencyInfo& dependency_map,
-											   const std::filesystem::path           boost_root,
-											   const std::vector<std::string>&       exclude )
+bdg::modules_data process_dpendency_map( const boostdep::DependencyInfo& dependency_map,
+										 const std::filesystem::path     boost_root,
+										 const std::vector<String_t>&    exclude )
 {
 
-	std::vector<std::string> module_names;
+	std::vector<String_t> module_names;
 	for( auto [name, ignore] : dependency_map ) {
 		module_names.push_back( name );
 	}
 
-	mdev::bdg::modules_data data;
+	bdg::modules_data data;
 	for( auto& name : filter( module_names, exclude ) ) {
 
 		std::string relative_path_to_root = replace( name, '~', '/' );
 
 		bool has_cmake = std::filesystem::exists( boost_root / "libs" / relative_path_to_root / "CMakeLists.txt" );
 
-		data[name] = mdev::bdg::ModuleInfo{name, has_cmake};
+		data[name] = bdg::ModuleInfo{name, has_cmake};
 	}
 
 	set_direct_deps( data, dependency_map );
@@ -113,12 +115,12 @@ mdev::bdg::modules_data process_dpendency_map( const mdev::boostdep::DependencyI
 
 } // namespace
 
-namespace mdev::bdg {
+namespace bdg {
 
 modules_data generate_file_list( const std::vector<boostdep::FileInfo>& files,
 								 std::filesystem::path                  boost_root,
-								 std::string                            root_module,
-								 const std::vector<std::string>&        exclude )
+								 String_t                               root_module,
+								 const std::vector<String_t>&           exclude )
 {
 	const auto dependency_map = boostdep::build_filtered_file_dependency_map( files, root_module );
 	return process_dpendency_map( dependency_map, boost_root, exclude );
@@ -126,8 +128,8 @@ modules_data generate_file_list( const std::vector<boostdep::FileInfo>& files,
 
 modules_data generate_module_list( const std::vector<boostdep::FileInfo>& files,
 								   std::filesystem::path                  boost_root,
-								   const std::optional<std::string>&      root_module,
-								   const std::vector<std::string>&        exclude )
+								   const std::optional<String_t>&         root_module,
+								   const std::vector<String_t>&           exclude )
 {
 	if( root_module ) {
 		const auto dependency_map = boostdep::build_filtered_module_dependency_map( files, root_module.value() );
@@ -241,7 +243,7 @@ std::vector<const ModuleInfo*> get_modules_sorted_by_dep_count( const modules_da
 	return list;
 }
 
-std::vector<std::vector<std::string>> cycles( const modules_data& modules )
+std::vector<std::vector<String_t>> cycles( const modules_data& modules )
 {
 	std::set<std::set<const ModuleInfo*>> cycle_sets;
 
@@ -262,7 +264,7 @@ std::vector<std::vector<std::string>> cycles( const modules_data& modules )
 		buffer.clear();
 	}
 
-	std::vector<std::vector<std::string>> ret;
+	std::vector<std::vector<String_t>> ret;
 	for( const auto& c : cycle_sets ) {
 		ret.push_back( {} );
 		auto& r = ret.back();
@@ -275,7 +277,7 @@ std::vector<std::vector<std::string>> cycles( const modules_data& modules )
 	return ret;
 }
 
-modules_data subgraph( const modules_data& full_graph, span<const std::string> modules )
+modules_data subgraph( const modules_data& full_graph, span<const String_t> modules )
 {
 	modules_data ret;
 
@@ -332,4 +334,5 @@ void print_cmake_stats( const modules_data& modules )
 	std::cout << "Modules without a cmake file: " << count << std::endl;
 }
 
-} // namespace mdev::bdg
+} // namespace bdg
+} // namespace mdev
