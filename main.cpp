@@ -18,11 +18,13 @@
 #include <QProcessEnvironment>
 #include <QSplitter>
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+//#include <fmt/time.h>
+
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <filesystem>
-#include <iostream>
 #include <map>
 #include <numeric>
 #include <optional>
@@ -77,6 +79,9 @@ int main( int argc, char** argv )
 	modules_data                    modules;
 	std::filesystem::path           boost_root;
 
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
+
 	auto rescan = [&file_infos, &boost_root]() {
 		boost_root = determine_boost_root();
 		file_infos
@@ -91,15 +96,12 @@ int main( int argc, char** argv )
 
 	auto print_stats  = [&] { print_cmake_stats( modules ); };
 	auto print_cycles = [&] {
-		std::cout << "\n##############################\n"
-					 "Dedected Cycles:\n\n";
-		for( auto& c : cycles( modules ) ) {
-			for( auto& e : c ) {
-				std::cout << e << " ";
-			}
-			std::cout << '\n';
-		}
-		std::cout << "\n##############################\n" << std::endl;
+		fmt::print(
+			"\n##############################\n"
+			"Dedected Cycles:\n\n"
+			"{}"
+			"\n##############################\n",
+			fmt::join( cycles( modules ), "\n" ) );
 	};
 	auto rescanfull = [&] {
 		rescan();

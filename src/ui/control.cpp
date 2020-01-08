@@ -12,13 +12,12 @@
 #include <optional>
 #include <string>
 
-namespace mdev::bdg {
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
-std::ostream& operator<<( std::ostream& stream, const QString& str )
-{
-	stream << str.toStdString();
-	return stream;
-}
+
+
+namespace mdev::bdg {
 
 std::filesystem::path determine_boost_root()
 {
@@ -28,7 +27,7 @@ std::filesystem::path determine_boost_root()
 	auto default_folder = env.value( "BOOST_ROOT", "" );
 
 	if( default_folder.isEmpty() ) {
-		std::cout << "No BOOST_ROOT environment variable found" << std::endl;
+		fmt::print( "No BOOST_ROOT environment variable found\n" );
 		default_folder = QStandardPaths::standardLocations( QStandardPaths::HomeLocation ).first();
 	}
 
@@ -36,10 +35,10 @@ std::filesystem::path determine_boost_root()
 		= QFileDialog::getExistingDirectory( nullptr, "Select boost root directory", default_folder ).toStdString();
 
 	if( !std::filesystem::exists( boost_root / "Jamroot" ) ) {
-		std::cout << "Could not detect Jamroot file in selected folder : "<< boost_root << "\n";
+		fmt::print( "Could not detect Jamroot file in selected folder : {}\n", boost_root );
 		std::exit( 1 );
 	} else {
-		std::cout << "Selected boost installation: " << boost_root << "\n";
+		fmt::print( "Selected boost installation: {}\n", boost_root );
 	}
 
 	return boost_root;

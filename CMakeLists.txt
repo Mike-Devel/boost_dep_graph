@@ -24,6 +24,7 @@ endif()
 find_package(Threads REQUIRED)
 find_package(Qt5Widgets CONFIG REQUIRED)
 find_package(Qt5Core CONFIG REQUIRED)
+find_package(Fmt CONFIG REQUIRED)
 
 ########## Compile modules & libraries #######################################
 add_subdirectory(src/ui)
@@ -36,6 +37,7 @@ target_link_libraries( boost_dep_graph
 	MDev::bdg_core
 	MDev::bdg_ui
 	Qt5::Core
+	fmt::fmt fmt::fmt-header-only
 )
 
 ########## Testing ###########################################################
