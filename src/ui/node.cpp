@@ -57,12 +57,8 @@ QPainterPath Node::shape() const
 
 void Node::paint( QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* )
 {
-	painter->setPen( Qt::NoPen );
-
-	QRadialGradient gradient( -3, -3, 10 );
+	QRadialGradient gradient( 0, 0, 10 );
 	if( option->state & QStyle::State_Sunken ) {
-		gradient.setCenter( 3, 3 );
-		gradient.setFocalPoint( 3, 3 );
 		gradient.setColorAt( 0, QColor( Qt::darkYellow ) );
 		gradient.setColorAt( 1, QColor( Qt::yellow ) );
 	} else {

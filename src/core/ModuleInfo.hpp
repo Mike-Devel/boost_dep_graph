@@ -14,6 +14,8 @@ struct ModuleInfo {
 	std::set<ModuleInfo*> deps;
 	std::set<ModuleInfo*> all_deps;
 
+	std::set<ModuleInfo*> cmake_deps;
+
 	// cached information
 	int                   level = -1;
 	bool                  deps_have_cmake = false;

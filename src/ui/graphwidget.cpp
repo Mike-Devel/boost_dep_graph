@@ -103,7 +103,7 @@ GraphWidget::GraphWidget( QWidget* parent )
 	setScene( sc );
 
 	QSurfaceFormat fmt;
-	fmt.setSamples( 8 );
+	fmt.setSamples( 4 );
 	QSurfaceFormat::setDefaultFormat( fmt );
 
 	setViewport( new QOpenGLWidget() );

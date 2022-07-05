@@ -241,6 +241,77 @@ std::vector<const ModuleInfo*> get_modules_sorted_by_dep_count( const modules_da
 	return list;
 }
 
+enum class VisitorReturn { Continue, StopBranch, StopTotal };
+
+template<class V>
+VisitorReturn dfs( const ModuleInfo* root_node, V& visitor )
+{
+	auto result = visitor.push( root_node );
+	for( const auto* node : root_node->all_deps ) {
+		if( result != VisitorReturn::Continue ) {
+			break;
+		}
+		result = dfs( node, visitor );
+	}
+	if( result == VisitorReturn::StopTotal ) {
+		return VisitorReturn::StopTotal;
+	}
+	visitor.pop();
+	return VisitorReturn::Continue;
+}
+
+struct CycleDetector {
+	std::vector<const ModuleInfo*> visited_nodes;
+
+	bool has_visited_node_already( const ModuleInfo* node ) const
+	{
+		return std::count( visited_nodes.begin(), visited_nodes.end(), node ) != 0;
+	}
+	VisitorReturn push( const ModuleInfo* node )
+	{
+		if( has_visited_node_already( node ) ) {
+			if( visited_nodes[0] == node ) {
+				return VisitorReturn::StopTotal;
+			} else {
+				visited_nodes.push_back( node );
+				return VisitorReturn::StopBranch;
+			}
+		} else {
+			visited_nodes.push_back( node );
+			return VisitorReturn::Continue;
+		}
+	}
+	void pop()
+	{
+		if( !visited_nodes.empty() ) {
+			visited_nodes.pop_back();
+		}
+	}
+};
+
+modules_data subgraph( const modules_data& full_graph, span<const std::string> modules )
+{
+	modules_data ret;
+
+	for( const auto& m : modules ) {
+		auto& e     = ret[m];
+		e.name      = m;
+		e.level     = -1;
+		e.has_cmake = full_graph.at( m ).has_cmake;
+	}
+
+	for( auto& [name, info] : ret ) {
+		for( const auto& m : modules ) {
+			if( full_graph.at( name ).deps.count( const_cast<ModuleInfo*>( &( full_graph.at( m ) ) ) ) ) {
+				info.deps.insert( &ret[m] );
+			}
+		}
+	}
+
+	update_derived_information( ret );
+	return ret;
+}
+
 std::vector<std::vector<std::string>> cycles( const modules_data& modules )
 {
 	std::set<std::set<const ModuleInfo*>> cycle_sets;
@@ -272,31 +343,26 @@ std::vector<std::vector<std::string>> cycles( const modules_data& modules )
 		std::sort( r.begin(), r.end() );
 	}
 
-	return ret;
-}
+	std::vector<std::vector<std::string>> sub_cycles;
+	for( auto& cycle : ret ) {
+		auto graph = subgraph( modules, cycle );
 
-modules_data subgraph( const modules_data& full_graph, span<const std::string> modules )
-{
-	modules_data ret;
-
-	for( const auto& m : modules ) {
-		auto& e     = ret[m];
-		e.name      = m;
-		e.level     = -1;
-		e.has_cmake = full_graph.at( m ).has_cmake;
-	}
-
-	for( auto& [name, info] : ret ) {
-		for( const auto& m : modules ) {
-			if( full_graph.at( name ).deps.count( const_cast<ModuleInfo*>( &( full_graph.at( m ) ) ) ) ) {
-				info.deps.insert( &ret[m] );
+		for( const auto& [name, info] : graph ) {
+			CycleDetector v;
+			dfs( &info, v );
+			sub_cycles.push_back( {} );
+			for( const auto* member : v.visited_nodes ) {
+				sub_cycles.back().push_back( member->name );
 			}
 		}
 	}
 
-	update_derived_information( ret );
+	ret.insert( ret.end(), sub_cycles.begin(), sub_cycles.end() );
+
 	return ret;
 }
+
+
 
 int block_count( const ModuleInfo& module )
 {

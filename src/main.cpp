@@ -46,7 +46,30 @@ using namespace mdev::bdg;
 	"range",        "system",    "regex",         "variant2", "coroutine",
 	"coroutine2",   "filesystem"};
 
-const std::vector<std::string> filter; //= filter_wo_serialization; //= filter_cpp_20; // modules that should be ignored
+const std::vector<std::string> filter = {};
+//= filter_wo_serialization; //= filter_wo_serialization; //= filter_cpp_20; // modules that should be ignored
+
+std::vector<boostdep::FileInfo> cmake_files_only( std::vector<boostdep::FileInfo> files )
+{
+	files.erase(
+		std::remove_if( files.begin(),
+						files.end(),
+						[]( const boostdep::FileInfo& f ) { return f.category != boostdep::FileCategory::CMake; } ),
+		files.end() );
+
+	return std::move( files );
+}
+
+std::vector<boostdep::FileInfo> wo_cmake_files( std::vector<boostdep::FileInfo> files )
+{
+	files.erase(
+		std::remove_if( files.begin(),
+						files.end(),
+						[]( const boostdep::FileInfo& f ) { return f.category == boostdep::FileCategory::CMake; } ),
+		files.end() );
+
+	return std::move( files );
+}
 
 int main( int argc, char** argv )
 {
@@ -61,13 +84,43 @@ int main( int argc, char** argv )
 
 	auto rescan = [&file_infos, &boost_root]() {
 		boost_root = determine_boost_root();
-		file_infos
-			= boostdep::scan_all_boost_modules( boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No );
+		file_infos = boostdep::scan_all_boost_modules(
+			boost_root, boostdep::TrackSources::Yes, boostdep::TrackTests::No, boostdep::TrackCMake::Yes );
 	};
 
 	auto redo_analysis = [&modules, &graph_widget, &file_infos, &boost_root] {
+		{
+			auto cmake_dep  = build_module_dependency_map( cmake_files_only( file_infos ) );
+			auto module_dep = build_module_dependency_map( wo_cmake_files( file_infos ) );
+
+			cmake_dep.at( "iterator" ).push_back( "hello" );
+
+			for( auto& [m, deps] : module_dep ) {
+				auto& cmd = cmake_dep[m];
+				if( cmd.empty() ) {
+					continue;
+				}
+				std::sort( deps.begin(), deps.end() );
+				std::sort( cmd.begin(), cmd.end() );
+
+				if( !std::equal( deps.begin(), deps.end(), cmd.begin(), cmd.end() ) ) {
+					std::cout << "Dependency difference for module " << m << ":" << std::endl;
+					std::cout << "FileDeps:  ";
+					for( const auto& d : deps ) {
+						std::cout << d << " ";
+					}
+					std::cout << std::endl << "CMakeDeps: ";
+					for( const auto& d : cmd ) {
+						std::cout << d << " ";
+					}
+					std::cout << std::endl;
+				}
+			}
+		}
+
 		auto root_lib = get_root_library_name();
-		modules       = generate_module_list( file_infos, boost_root, root_lib, filter );
+		modules       = generate_module_list( wo_cmake_files( file_infos ), boost_root, root_lib, filter );
+		// modules       = generate_file_list( file_infos, boost_root, root_lib.value(), filter );
 		graph_widget->set_data( &modules );
 	};
 
@@ -106,8 +159,8 @@ int main( int argc, char** argv )
 
 	QSplitter* layout = new QSplitter();
 	layout->addWidget( graph_widget );
-	layout->addWidget( tableview );
-	layout->addWidget( treeview );
+	// layout->addWidget( tableview );
+	// layout->addWidget( treeview );
 
 	main_window.setCentralWidget( layout );
 

@@ -9,8 +9,9 @@ namespace mdev::boostdep {
 enum class TrackSources { No, Yes };
 enum class TrackTests { No, Yes };
 enum class TrackOrigin { No, Yes };
+enum class TrackCMake { No, Yes };
 
-enum class FileCategory { Unknown, Header, Source, Test };
+enum class FileCategory { Unknown, Header, Source, Test, CMake };
 struct FileInfo {
 	std::string              name;
 	std::vector<std::string> included_files;
@@ -20,11 +21,13 @@ struct FileInfo {
 
 std::vector<FileInfo> scan_all_boost_modules( const std::filesystem::path& boost_root,
 											  const TrackSources           track_sources,
-											  const TrackTests             track_tests );
+											  const TrackTests             track_tests,
+											  const TrackCMake              track_cmake);
 
 using DependencyInfo = std::map<std::string, std::vector<std::string>>;
 
 DependencyInfo build_module_dependency_map( const std::vector<FileInfo>& files );
+
 
 // This will only return modules that the files in root_module directly or indirectly depend on
 // Note: This function is tracking actual include chains - not "library level dependencies"

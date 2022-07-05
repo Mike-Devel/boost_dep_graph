@@ -175,10 +175,83 @@ scan_files_in_directory( fs::path const& dir, fs::path const& prefix, FileInfo b
 	return discovered_files;
 }
 
+std::vector<std::string> get_included_boost_cmake_modules( fs::path const& file )
+{
+	std::vector<std::string> modules;
+	std::ifstream            is( file );
+
+	bool        link_libs_start = false;
+	std::string link_libs;
+
+	for( std::string line; std::getline( is, line ); ) {
+		if( line.find( "target_link_libraries" ) != std::string::npos ) {
+			link_libs_start = true;
+		}
+		if( !link_libs_start ) {
+			continue; // this can't be an include of a boost library
+		}
+		link_libs += line;
+		link_libs += ' ';
+
+		if( line.find( ')' ) != std::string::npos ) {
+			link_libs_start = false;
+		}
+	}
+
+	std::string_view window( link_libs );
+
+	{
+		auto start = window.find( "Boost::" );
+		if( start == std::string_view::npos ) {
+			return modules;
+		}
+		auto end = window.rfind( ')' );
+		window = window.substr( start,end - start);
+	}
+
+	while( !window.empty() ) {
+		window = trim_left( window );
+
+		window   = trim_prefix( window, "Boost::" );
+		auto end = window.find_first_of( "\t " );
+		modules.push_back( std::string( window.substr( 0, end ) ) + ".cmake" );
+		if( end == std::string_view::npos ) {
+			break;
+		}
+		window.remove_prefix( end );
+	}
+
+	return modules;
+
+} // namespace
+
+std::vector<FileInfo>
+scan_cmake_file_in_directory( fs::path const& dir, fs::path const&, FileInfo base_template = {} )
+{
+	std::vector<FileInfo> discovered_files;
+	if( !fs::exists( dir ) ) {
+		return discovered_files;
+	}
+
+	auto cml_path = dir / "CMakeLists.txt ";
+	if( std::filesystem::is_regular_file( cml_path ) ) {
+		FileInfo f = base_template;
+
+		// fs::relative would be the "obvious" thing to do here, but it is much slower (at least on windows)
+		f.name           = dir.filename().u8string() + ".cmake";
+		f.included_files = get_included_boost_cmake_modules( cml_path );
+
+		discovered_files.push_back( std::move( f ) );
+	}
+
+	return discovered_files;
+}
+
 std::vector<FileInfo> scan_module_files( const fs::path&   module_root,
 										 const std::string module_name,
 										 TrackSources      track_sources,
-										 TrackTests        track_tests )
+										 TrackTests        track_tests,
+										 TrackCMake        track_cmake )
 {
 	FileInfo base_template;
 	base_template.module_name = module_name;
@@ -210,13 +283,23 @@ std::vector<FileInfo> scan_module_files( const fs::path&   module_root,
 		mdev::merge_into( std::move( files ), ret );
 	}
 
+	if( track_cmake == TrackCMake::Yes ) {
+		base_template.category = FileCategory::CMake;
+
+		auto files = scan_cmake_file_in_directory( module_root, module_root, base_template );
+
+		mdev::merge_into( std::move( files ), ret );
+	}
+
 	return ret;
 }
 
 } // namespace
 
-std::vector<FileInfo>
-scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sources, const TrackTests track_tests )
+std::vector<FileInfo> scan_all_boost_modules( const fs::path&    boost_root,
+											  const TrackSources track_sources,
+											  const TrackTests   track_tests,
+											  const TrackCMake   track_cmake )
 {
 	const auto modules = find_modules( boost_root / "libs" );
 
@@ -235,7 +318,7 @@ scan_all_boost_modules( const fs::path& boost_root, const TrackSources track_sou
 		modules.begin(), //
 		modules.end(),   //
 		[&]( const auto& m ) {
-			auto ret = scan_module_files( m.second, m.first, track_sources, track_tests );
+			auto ret = scan_module_files( m.second, m.first, track_sources, track_tests, track_cmake );
 #ifndef BDG_DONT_USE_STD_PARALLEL
 			std::lock_guard lg( mx );
 #endif

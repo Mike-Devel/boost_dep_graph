@@ -30,7 +30,7 @@ add_subdirectory(src/ui)
 add_subdirectory(src/core)
 
 ######### generate the executable ############################################
-add_executable(	boost_dep_graph main.cpp )
+add_executable(	boost_dep_graph src/main.cpp )
 
 target_link_libraries( boost_dep_graph
 	MDev::bdg_core
